@@ -75,12 +75,72 @@ const CreateProduct = asyncHandler(async (req, res) => {
 
 const getProducts = async (req, res) => {
     try {
-      const products = await product.find({}).populate('seller');
-      res.status(200).json(products);
+        const products = await product.find({}).populate('seller');
+        res.status(200).json(products);
     } catch (error) {
-      console.error("Error in getProducts:", error);
-      res.status(500).json({ message: 'Server error', error });
+        console.error("Error in getProducts:", error);
+        res.status(500).json({ message: 'Server error', error });
     }
-  }
+};
 
-module.exports = { CreateProduct, getProducts };
+
+const updateProduct = asyncHandler(async (req, res) => {
+    try {
+        const productId = req.params.id;
+
+        const product = await product.findById(productId);
+        if (!product) {
+            return res.status(404).json({ message: "Product Not Found" });
+        }
+
+        if (product.seller.toString() !== req.user.id) {
+            return res.status(403).json({ message: "You are not authorized to edit this product" });
+        }
+
+        const updatedProduct = await product.findByIdAndUpdate(productId, req.body, { new: true });
+        res.status(201).json(updatedProduct);
+    } catch (error) {
+        console.error("Error in updating: ", error);
+        res.status(500).json({ message: 'Server Error', error });
+    }
+});
+
+
+const deleteProduct = asyncHandler(async (req, res) => {
+    try {
+        const productId = req.params.id;
+
+        const Product = product.findById(productId);
+
+        if (!product) {
+            return res.status(404).json({ message: "Product not found" });
+        }
+
+        if (product.seller.toString() !== req.user.id) {
+            return res.status(200).json({ message: "You are not authorized to edit this product" });
+        }
+
+        await Product.findByIdAndDelete(productId);
+        res.status(200).json({ message: "Deleted succesfully" });
+    } catch (error) {
+        console.error("Error in product deletion", error);
+        res.status(500).json({ message: "Server error in deletion", error });
+    }
+});
+
+
+const getProductById = async (req, res) => {
+    try {
+        const productId = req.params.id;
+        const product = await Product.findById(productId).populate('seller', 'name email');
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+        res.status(200).json(product);
+    } catch (error) {
+        console.error("Error in getProductById:", error);
+        res.status(500).json({ message: 'Server error', error });
+    }
+};
+
+module.exports = { CreateProduct, getProducts, updateProduct, deleteProduct, getProductById };
