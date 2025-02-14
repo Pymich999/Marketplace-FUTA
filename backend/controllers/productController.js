@@ -110,17 +110,17 @@ const deleteProduct = asyncHandler(async (req, res) => {
     try {
         const productId = req.params.id;
 
-        const Product = product.findById(productId);
+        const Product =await product.findById(productId);
 
-        if (!product) {
+        if (!Product) {
             return res.status(404).json({ message: "Product not found" });
         }
 
-        if (product.seller.toString() !== req.user.id) {
+        if (Product.seller.toString() !== req.user.id) {
             return res.status(200).json({ message: "You are not authorized to edit this product" });
         }
 
-        await Product.findByIdAndDelete(productId);
+        await product.findByIdAndDelete(productId);
         res.status(200).json({ message: "Deleted succesfully" });
     } catch (error) {
         console.error("Error in product deletion", error);
