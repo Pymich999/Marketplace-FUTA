@@ -40,5 +40,10 @@ const isSeller = asyncHandler(async (req, res, next) => {
     next();
 });
 
+const isBuyer = asyncHandler(async (req, res, next) => {
+    if (req.user.role !== "buyer") return res.status(403).json({ message: "Access denied" });
+    next();
+});
 
-module.exports = { protect, isAdmin, isSeller };
+
+module.exports = { protect, isAdmin, isSeller, isBuyer };
