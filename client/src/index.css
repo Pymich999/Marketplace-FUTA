@@ -1,68 +1,392 @@
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
+/* General Styles */
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+    font-family: 'Roboto', sans-serif;
+    background-color: #f9fafb;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    color: #374151;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Utility Classes */
+.hidden {
+    display: none;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+.flex-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.full-width {
+    width: 100%;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background-color: #2563eb;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background-color: #1d4ed8;
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.4);
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select {
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-sizing: border-box;
+    transition: border 0.3s;
+}
+
+input:focus,
+select:focus {
+    border-color: #2563eb;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+/* Product Listing */
+.product-listing {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    padding: 2rem;
+}
+
+.product-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    overflow: hidden;
+}
+
+.product-card:hover {
+    transform: scale(1.03);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.product-image {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+}
+
+.product-details {
+    padding: 1rem;
+    text-align: center;
+}
+
+.product-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.product-price {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #10b981;
+    margin-bottom: 1rem;
+}
+
+.product-button {
+    background-color: #2563eb;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.product-button:hover {
+    background-color: #1d4ed8;
+}
+
+/* Cart Styles */
+.cart-container {
+    background: #f9fafb;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cart-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.cart-item:last-child {
+    border-bottom: none;
+}
+
+.cart-item img {
+    width: 80px;
+    border-radius: 8px;
+    margin-right: 1rem;
+}
+
+.cart-item-details {
+    flex: 1;
+}
+
+.cart-item-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.cart-item-price {
+    color: #10b981;
+    font-weight: 700;
+}
+
+.cart-item-remove {
+    background: transparent;
+    color: #f87171;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: color 0.3s;
+}
+
+.cart-item-remove:hover {
+    color: #ef4444;
+}
+
+/* Checkout Section */
+.checkout-container {
+    padding: 2rem;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-top: 2rem;
+}
+
+.checkout-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 1.5rem;
+}
+
+.checkout-button {
+    width: 100%;
+    background-color: #10b981;
+    color: #fff;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.checkout-button:hover {
+    background-color: #059669;
+    box-shadow: 0 6px 12px rgba(5, 150, 105, 0.3);
+}
+
+/* Navbar */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e5e7eb;
+    z-index: 999;
+}
+
+.navbar-logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #2563eb;
+    cursor: pointer;
+}
+
+.nav-item {
+    text-align: center;
+    color: #6b7280;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: color 0.3s;
+    margin-left: 1.5rem;
+}
+
+.nav-item:hover {
+    color: #2563eb;
+    transform: scale(1.1);
+}
+
+/* Footer */
+.footer {
+    background: #1f2937;
+    color: #d1d5db;
+    padding: 2rem;
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.footer a {
+    color: #3b82f6;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.footer a:hover {
+    color: #2563eb;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Signup Page Styles */
+.signup-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #e0e7ff, #f3f4f6);
+    animation: fadeIn 1s ease;
+}
+
+.signup-form {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 28rem;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.signup-form:hover {
+    transform: scale(1);
+}
+
+.signup-title {
+    font-size: 2rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #1f2937;
+}
+
+.signup-input {
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+}
+
+.signup-button {
+    width: 100%;
+    background-color: #3b82f6;
+    color: #fff;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.signup-button:hover {
+    background-color: #2563eb;
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* Login Page Styles */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f3f4f6, #e0e7ff);
+    animation: fadeIn 1s ease;
+}
+
+.login-form {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 28rem;
+    animation: slideIn 0.6s ease;
+}
+
+.login-title {
+    font-size: 2rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #1f2937;
+}
+
+.login-button {
+    width: 100%;
+    background-color: #10b981;
+    color: #fff;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.login-button:hover {
+    background-color: #059669;
+    box-shadow: 0 6px 12px rgba(5, 150, 105, 0.3);
 }
