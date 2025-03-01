@@ -1,7 +1,7 @@
 /* General Styles */
 body {
     font-family: 'Roboto', sans-serif;
-    background-color: #f9fafb;
+    background: linear-gradient(135deg, #f5f5f5, #e8e8e8);
     margin: 0;
     padding: 0;
     overflow-x: hidden;
@@ -289,60 +289,94 @@ select:focus {
 /* Signup Page Styles */
 .signup-container {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #e0e7ff, #f3f4f6);
-    animation: fadeIn 1s ease;
+    padding: 20px;
 }
+
+/* Header styles with sequential fade in (each word animated) */
+.welcome-header {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2.5rem;
+    font-weight: bold;
+}
+
 
 .signup-form {
     background: #fff;
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
     width: 100%;
-    max-width: 28rem;
-    transform: scale(0.9);
-    transition: transform 0.3s ease;
+    max-width: 400px;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .signup-form:hover {
     transform: scale(1);
 }
 
+.word {
+    opacity: 0;
+    display: inline-block;
+    animation: fadeInUp 0.5s forwards;
+}
+
+/* Color variations for words */
+.word1, .word3 {
+    color: #0D47A1; /* Dark blue */
+}
+.word2, .word4 {
+    color: #4A148C; /* Dark purple */
+}
+
 .signup-title {
-    font-size: 2rem;
-    font-weight: 700;
     text-align: center;
     margin-bottom: 1.5rem;
-    color: #1f2937;
+    font-size: 1.8rem;
+    color: #333;
 }
 
 .signup-input {
     width: 100%;
-    padding: 0.75rem;
+    padding: 0.75rem 1rem;
     margin-bottom: 1rem;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
+
+.signup-input:focus {
+    border-color: #6a82fb;
+    box-shadow: 0 0 5px rgba(106, 130, 251, 0.5);
+    outline: none;
+}
+
+/* Signup button styling */
 .signup-button {
     width: 100%;
-    background-color: #3b82f6;
-    color: #fff;
+    margin-top: 10px;
     padding: 0.75rem;
+    background: #6a82fb;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 1rem;
     cursor: pointer;
-    font-weight: 600;
-    transition: background-color 0.3s;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.signup-button:first-child {
+    margin-top: 1.5rem; /* More spacing before the first button */
 }
 
 .signup-button:hover {
-    background-color: #2563eb;
-    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+    background: #5a72eb;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
 /* Login Page Styles */
@@ -390,3 +424,50 @@ select:focus {
     background-color: #059669;
     box-shadow: 0 6px 12px rgba(5, 150, 105, 0.3);
 }
+
+/* Container styling */
+.signup-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Welcome header styling */
+.welcome-header {
+    text-align: center;
+    margin: 40px 0 20px;
+    font-size: 2rem;
+}
+
+/* Word styling and sequential fade-in animation */
+.word {
+    opacity: 0;
+    font-weight: bold;
+    display: inline-block;
+    animation: fadeInUp 0.5s forwards;
+}
+
+/* Dark blue and dark purple color variations */
+.word1, .word3 {
+    color: #0D47A1; /* Dark blue */
+}
+.word2, .word4 {
+    color: #4A148C; /* Dark purple */
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Animation delay for each word to display one by one */
+.word1 { animation-delay: 0.2s; }
+.word2 { animation-delay: 0.4s; }
+.word3 { animation-delay: 0.6s; }
+.word4 { animation-delay: 0.8s; }

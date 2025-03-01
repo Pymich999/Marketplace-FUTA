@@ -18,6 +18,11 @@ const userSchema = mongoose.Schema(
             required: [true, 'Password is required']
         },
 
+        phone: { type: String, required: true, unique: true },
+
+        
+        verified: { type: Boolean, default: false },
+
         role: {
             type: String,
             enum: ["buyer", "seller", "admin", "seller_pending"],

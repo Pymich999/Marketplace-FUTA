@@ -4,7 +4,7 @@ import authService from "./authService";
 
 const user = JSON.parse(localStorage.getItem('user'))
 
-const initialstate = {
+const initialState = {
 	user: user ? user: null,
 	isLoading: false,
 	isSuccess: false,

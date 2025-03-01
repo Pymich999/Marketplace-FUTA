@@ -4,39 +4,63 @@ const bycrypt = require('bcryptjs');
 const User = require('../models/userModels');
 
 const registerBuyer = asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, idToken } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !idToken) {
         res.status(400);
-        throw new Error("All fields are compulsory pls");
+        throw new Error("All fields are required, including the Firebase ID token");
     }
 
-    const userExists = await User.findOne({ email });
+    // Verify Firebase ID token
+    let decodedToken;
+    try {
+        decodedToken = await admin.auth().verifyIdToken(idToken);
+    } catch (error) {
+        res.status(401);
+        throw new Error("Invalid Firebase ID token");
+    }
+
+    // Extract phone number from Firebase ID token
+    const phone = decodedToken.phone_number;
+    if (!phone) {
+        res.status(400);
+        throw new Error("Phone number is required");
+    }
+
+    // The email in the request is the user’s chosen email (not from Firebase)
+    const userExists = await User.findOne({ phone });
 
     if (userExists) {
         res.status(400);
-        throw new Error('User already exists');
+        throw new Error("User with this phone number already exists");
     }
 
-    const salt = await bycrypt.genSalt(10);
-    const hashed = await bycrypt.hash(password, salt);
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(password, salt);
 
-    const user = await User.create({ name, email, password: hashed, role: "buyer" });
+    const user = await User.create({
+        name,
+        email, // Use the email provided in the request
+        password: hashed,
+        phone,  // Verified phone number
+        role: "buyer",
+    });
 
     if (user) {
         res.status(201).json({
             _id: user.id,
             name: user.name,
             email: user.email,
+            phone: user.phone,
             role: user.role,
-
-            token: generateJwtToken(user._id)
+            token: generateJwtToken(user._id),
         });
     } else {
         res.status(400);
         throw new Error("Invalid User Data");
     }
 });
+
 
 const registerSeller = asyncHandler(async (req, res) => {
     const { name, email, password, businessName, studentName, businessDescription } = req.body;

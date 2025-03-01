@@ -1,73 +1,129 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { signup, reset } from "../features/auth/authSlice";
+import { getAuth, signInWithPhoneNumber, RecaptchaVerifier } from "firebase/auth";
+import { app } from "../firebase";
 
 const Signup = () => {
     const [formData, setFormData] = useState({
         name: "",
         email: "",
         password: "",
-        userType: "buyer", // Default user type
+        phone: "",
+        otp: "",
+        idToken: "", // Store Firebase ID token
     });
-    
+
+    const [otpSent, setOtpSent] = useState(false);
+    const [otpVerified, setOtpVerified] = useState(false);
+
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const { user, isLoading, isSuccess, isError, message } = useSelector((state) => state.auth);
+
+    useEffect(() => {
+        if (isSuccess || user) {
+            navigate("/login");
+        }
+        if (isError) {
+            alert(message);
+        }
+        dispatch(reset());
+    }, [user, isSuccess, isError, message, navigate, dispatch]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = async (e) => {
+    // 🔥 Send OTP to user
+    const sendOTP = async () => {
+        if (!formData.phone) {
+            alert("Enter phone number first!");
+            return;
+        }
+
+        const auth = getAuth(app);
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+
+        try {
+            const confirmationResult = await signInWithPhoneNumber(auth, formData.phone, window.recaptchaVerifier);
+            window.confirmationResult = confirmationResult;
+            setOtpSent(true); // Show OTP input field
+            alert("OTP Sent!");
+        } catch (error) {
+            console.error("Error sending OTP:", error);
+            alert("Failed to send OTP");
+        }
+    };
+
+    // 🔥 Verify OTP
+    const verifyOTP = async () => {
+        if (!formData.otp) {
+            alert("Enter OTP!");
+            return;
+        }
+
+        try {
+            const confirmationResult = window.confirmationResult;
+            const userCredential = await confirmationResult.confirm(formData.otp);
+            const idToken = await userCredential.user.getIdToken(); // 🔥 Get Firebase ID Token
+
+            setFormData({ ...formData, idToken });
+            setOtpVerified(true); // OTP verified, now enable form submission
+            alert("OTP Verified!");
+        } catch (error) {
+            console.error("Error verifying OTP:", error);
+            alert("Invalid OTP");
+        }
+    };
+
+    const handleSubmit = (e) => {
         e.preventDefault();
-        console.log("User Data:", formData);
-        navigate("/login");
+        if (!otpVerified) {
+            alert("Verify OTP first!");
+            return;
+        }
+        dispatch(signup(formData)); // Send user data + idToken to backend
     };
 
     return (
         <div className="signup-container">
+            <header className="welcome-header"><span className="word
+            word1">Welcome</span>{" "}
+            <span className="word
+            word2">to</span>{" "}<span className="word
+            word3">FUTA</span>{" "}<span className="word
+            word4">Marketplace</span>
+            </header>
+
             <form onSubmit={handleSubmit} className="signup-form">
                 <h2 className="signup-title">Sign Up</h2>
-                
-                <input 
-                    type="text" 
-                    name="name" 
-                    value={formData.name} 
-                    onChange={handleChange} 
-                    placeholder="Full Name" 
-                    className="signup-input" 
-                    required
-                />
-                
-                <input 
-                    type="email" 
-                    name="email" 
-                    value={formData.email} 
-                    onChange={handleChange} 
-                    placeholder="Email" 
-                    className="signup-input" 
-                    required
-                />
-                
-                <input 
-                    type="password" 
-                    name="password" 
-                    value={formData.password} 
-                    onChange={handleChange} 
-                    placeholder="Password" 
-                    className="signup-input" 
-                    required
-                />
-                
-                <select 
-                    name="userType" 
-                    value={formData.userType} 
-                    onChange={handleChange} 
-                    className="signup-input"
-                >
-                    <option value="buyer">Buyer</option>
-                    <option value="seller">Seller</option>
-                </select>
 
-                <button type="submit" className="signup-button">Sign Up</button>
+                <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Full Name" className="signup-input" required />
+                <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email" className="signup-input" required />
+                <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Password" className="signup-input" required />
+
+                <input type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone Number" className="signup-input" required />
+
+                {/* Send OTP button */}
+                {!otpSent && (
+                      <button type="button" onClick={sendOTP} className="signup-button">Send OTP</button>
+                )}
+
+                {/* OTP Input & Verify Button */}
+                {otpSent && (
+                   <>
+                   <input type="text" name="otp" value={formData.otp} onChange={handleChange} placeholder="Enter OTP" className="signup-input" required />
+                   <button type="button" onClick={verifyOTP} className="signup-button">Verify OTP</button>
+                   </>
+                )}
+
+                {/* Final Sign Up Button */}
+                <button type="submit" className="signup-button" disabled={isLoading || !otpVerified}>Sign Up</button>
             </form>
+
+            <div id="recaptcha-container"></div>
         </div>
     );
 };
