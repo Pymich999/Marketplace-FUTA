@@ -76,6 +76,7 @@ const CreateProduct = asyncHandler(async (req, res) => {
 const getProducts = async (req, res) => {
     try {
         const products = await product.find({}).populate('seller');
+        console.log(products)
         res.status(200).json(products);
     } catch (error) {
         console.error("Error in getProducts:", error);

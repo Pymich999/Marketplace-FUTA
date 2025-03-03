@@ -121,6 +121,9 @@ const Signup = () => {
 
                 {/* Final Sign Up Button */}
                 <button type="submit" className="signup-button" disabled={isLoading || !otpVerified}>Sign Up</button>
+                <p className="signup-prompt">
+                    Already have an Account?<a href="/login">Log In</a>
+                </p>
             </form>
 
             <div id="recaptcha-container"></div>

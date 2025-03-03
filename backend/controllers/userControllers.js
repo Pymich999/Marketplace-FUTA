@@ -104,6 +104,7 @@ const registerSeller = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
+    console.log(user)
 
     if (user && (await bycrypt.compare(password, user.password))) {
         res.json({ _id: user.id, name: user.name, email: user.email, role: user.role, token: generateJwtToken(user._id) });
