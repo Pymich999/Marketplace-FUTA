@@ -471,3 +471,37 @@ select:focus {
 .word2 { animation-delay: 0.4s; }
 .word3 { animation-delay: 0.6s; }
 .word4 { animation-delay: 0.8s; }
+
+
+/* Signup prompt slider animation */
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.signup-prompt {
+    text-align: center;
+    font-size: 1rem;
+    color: #374151;
+    margin-top: 1rem;
+    animation: slideUp 0.8s ease-out;
+}
+
+/* Link styles */
+.signup-prompt a {
+    color: #2563eb;
+    font-weight: bold;
+    text-decoration: none;
+    transition: color 0.3s ease-in-out;
+}
+
+.signup-prompt a:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
