@@ -9,6 +9,12 @@ body {
     color: #374151;
 }
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 /* Utility Classes */
 .hidden {
     display: none;
@@ -407,11 +413,12 @@ select:focus {
   position: fixed;
   top: 0;
   left: 0;
-  width: 60px;
+  width: 200px;
   height: 100vh;
   background: #4b0082; /* Dark Purple */
   transition: width 0.3s ease-in-out;
   overflow: hidden;
+  padding-top: 20px;
 }
 
 .sidebar {
@@ -427,26 +434,23 @@ select:focus {
 
 .sidebar ul {
   list-style: none;
-  padding: 0;
+  padding: 10px;
 }
 
 .sidebar ul li {
-  margin: 20px 0;
-  padding: 10px;
+  margin: 10px 0;
 }
 
 .sidebar ul li a {
   color: #fff;
   text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: block;
+  padding: 10px;
 }
 
 .sidebar ul li a:hover {
-  background: #6a0dad; /* Lighter Purple */
+  background: #6a0dad;
   border-radius: 5px;
-  padding: 10px;
 }
 
 .menu-btn {
@@ -460,42 +464,47 @@ select:focus {
   cursor: pointer;
 }
 
-/* ----- HEADER ----- */
+/* ----- HEADER (HERO SECTION) ----- */
 .hero {
   text-align: center;
-  padding: 50px;
-  background: #6a0dad; /* Medium Purple */
+  padding: 20px;
+  background: #6a0dad;
   color: white;
 }
 
 .hero h1 {
-  font-size: 2.5rem;
+  font-size: 2rem;
 }
 
 .hero p {
-  font-size: 1.2rem;
+  font-size: 1rem;
 }
 
 /* ----- FILTER SECTION ----- */
 .filter-container {
   display: flex;
+  justify-content: center;
+  align-items: center;
   gap: 10px;
-  margin-bottom: 20px;
+  margin: 20px 0;
+  width: 100%;
 }
 
 .filter-container input,
 .filter-container select {
-  padding: 8px;
+  padding: 10px;
   border: 1px solid #8a2be2;
   border-radius: 4px;
   background: #e6e6fa;
+  width: 40%;
 }
 
 /* ----- PRODUCT GRID ----- */
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 20px;
+  padding: 20px;
 }
 
 /* ----- PRODUCT CARD ----- */
@@ -528,10 +537,18 @@ select:focus {
   color: #555;
 }
 
+
 /* ----- FOOTER ----- */
 .footer {
+  background: #4b0082;
+  color: #fff;
   text-align: center;
   padding: 10px;
-  background: #4b0082;
-  color: white;
+  /* No need for position: fixed or absolute, flex handles the placement */
 }
+
+.page-container {
+  margin-left: 200px; /* Leaves space for the sidebar */
+  padding: 20px;
+}
+
