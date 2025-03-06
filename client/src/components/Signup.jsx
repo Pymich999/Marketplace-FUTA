@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { signup, reset } from "../features/auth/authSlice";
 import { getAuth, signInWithPhoneNumber, RecaptchaVerifier } from "firebase/auth";
 import { app } from "../firebase";
+import futaLogo from '../assets/futa-img-logo/logo.svg'
 
 const Signup = () => {
     const [formData, setFormData] = useState({
@@ -88,8 +89,14 @@ const Signup = () => {
     };
 
     return (
-        <div className="signup-container">
-            <header className="welcome-header"><span className="word
+        <div className="auth-container">
+        <div className="auth-logo-container">
+        <img 
+          src={futaLogo} 
+          className="auth-logo" 
+        />
+        </div>
+            <header className="auth-title"><span className="word
             word1">Welcome</span>{" "}
             <span className="word
             word2">to</span>{" "}<span className="word
@@ -97,8 +104,8 @@ const Signup = () => {
             word4">Marketplace</span>
             </header>
 
-            <form onSubmit={handleSubmit} className="signup-form">
-                <h2 className="signup-title">Sign Up</h2>
+            <form onSubmit={handleSubmit} className="auth-form">
+                <h2 className="auth-title">Sign Up</h2>
 
                 <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Full Name" className="signup-input" required />
                 <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email" className="signup-input" required />
@@ -108,20 +115,20 @@ const Signup = () => {
 
                 {/* Send OTP button */}
                 {!otpSent && (
-                      <button type="button" onClick={sendOTP} className="signup-button">Send OTP</button>
+                      <button type="button" onClick={sendOTP} className="auth-button">Send OTP</button>
                 )}
 
                 {/* OTP Input & Verify Button */}
                 {otpSent && (
                    <>
                    <input type="text" name="otp" value={formData.otp} onChange={handleChange} placeholder="Enter OTP" className="signup-input" required />
-                   <button type="button" onClick={verifyOTP} className="signup-button">Verify OTP</button>
+                   <button type="button" onClick={verifyOTP} className="auth-button">Verify OTP</button>
                    </>
                 )}
 
                 {/* Final Sign Up Button */}
-                <button type="submit" className="signup-button" disabled={isLoading || !otpVerified}>Sign Up</button>
-                <p className="signup-prompt">
+                <button type="submit" className="auth-button" disabled={isLoading || !otpVerified}>Sign Up</button>
+                <p className="auth-prompt">
                     Already have an Account?<a href="/login">Log In</a>
                 </p>
             </form>
