@@ -1,37 +1,24 @@
-import { useState } from 'react'
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Signup from './components/Signup'
+import Signup from './components/Signup';
 import Login from './components/login';
-import Navbar from './components/navbar';
+import Layout from './components/Layout'; 
 import HomePage from './components/homepage';
-
-const Layout = ({ children }) => {
-  return (
-    <>
-      <Navbar />
-      <main>{children}</main>
-    </>
-  );
-}
+import Cart from './components/cart';
 
 function App() {
   return (
-      <Routes>
-        {/* Routes with Navbar */}
-        <Route
-          path="/"
-          element={
-            <Layout>
-              <HomePage />
-            </Layout>
-          }
-        />
-
-        {/* Routes without Navbar */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-      </Routes>
+    <Routes>
+      {/* Routes with Navbar */}
+      <Route element={<Layout />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/cart" element={<Cart />} />
+      </Route>
+      
+      {/* Routes without Navbar */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+    </Routes>
   );
 }
 
