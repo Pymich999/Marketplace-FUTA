@@ -2,123 +2,224 @@ const asyncHandler = require('express-async-handler');
 const jwt = require('jsonwebtoken');
 const bycrypt = require('bcryptjs');
 const User = require('../models/userModels');
+const OTP = require('../models/OtpModel');
+const SellerProfile = require('../models/Sellerprofile');
+//const { generateJwtToken } = require('../utils/generateToken');
+const { generateOTP, sendOTPEmail } = require('../utils/otpUtils');
+
+/**
+ * Request OTP for email verification
+ * @route POST /api/users/request-otp
+ * @access Public
+ */
+const requestEmailOTP = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    res.status(400);
+    throw new Error('Email is required');
+  }
+
+  // Check if user with this email already exists
+  const userExists = await User.findOne({ email });
+  if (userExists) {
+    res.status(400);
+    throw new Error('User with this email already exists');
+  }
+
+  // Generate OTP
+  const otp = generateOTP();
+
+  // Save OTP to database (overwrites any existing OTP for this email)
+  await OTP.findOneAndDelete({ email });
+  await OTP.create({ email, otp });
+
+  // Send OTP to user's email
+  try {
+    await sendOTPEmail(email, otp);
+    res.status(200).json({ message: 'OTP sent to email successfully' });
+  } catch (error) {
+    res.status(500);
+    throw new Error('Failed to send OTP: ' + error.message);
+  }
+});
+
+/**
+ * Register a new buyer user
+ * @route POST /api/users/register-buyer
+ * @access Public
+ */
 
 const registerBuyer = asyncHandler(async (req, res) => {
-    const { name, email, password, idToken } = req.body;
+  const { name, email, password, otp, phone } = req.body;
 
-    if (!name || !email || !password || !idToken) {
-        res.status(400);
-        throw new Error("All fields are required, including the Firebase ID token");
-    }
+  if (!name || !email || !password || !otp || !phone) {
+    res.status(400);
+    throw new Error('All fields are required');
+  }
 
-    // Verify Firebase ID token
-    let decodedToken;
-    try {
-        decodedToken = await admin.auth().verifyIdToken(idToken);
-    } catch (error) {
-        res.status(401);
-        throw new Error("Invalid Firebase ID token");
-    }
+  // Verify OTP
+  const otpRecord = await OTP.findOne({ email });
+  if (!otpRecord) {
+    res.status(400);
+    throw new Error('OTP has expired or was never sent. Please request a new one.');
+  }
 
-    // Extract phone number from Firebase ID token
-    const phone = decodedToken.phone_number;
-    if (!phone) {
-        res.status(400);
-        throw new Error("Phone number is required");
-    }
+  if (otpRecord.otp !== otp) {
+    res.status(400);
+    throw new Error('Invalid OTP');
+  }
 
-    // The email in the request is the user’s chosen email (not from Firebase)
-    const userExists = await User.findOne({ phone });
+  // Check if user already exists by email or phone
+  const userExists = await User.findOne({ 
+    $or: [{ email }, { phone }]
+  });
+  
+  if (userExists) {
+    res.status(400);
+    throw new Error('User with this email or phone number already exists');
+  }
 
-    if (userExists) {
-        res.status(400);
-        throw new Error("User with this phone number already exists");
-    }
+  // Hash password
+  const salt = await bycrypt.genSalt(10);
+  const hashed = await bycrypt.hash(password, salt);
 
-    const salt = await bcrypt.genSalt(10);
-    const hashed = await bcrypt.hash(password, salt);
+  // Create user
+  const user = await User.create({
+    name,
+    email,
+    password: hashed,
+    phone,
+    role: 'buyer',
+  });
 
-    const user = await User.create({
-        name,
-        email, // Use the email provided in the request
-        password: hashed,
-        phone,  // Verified phone number
-        role: "buyer",
+  if (user) {
+    // Delete the OTP record since it's been used
+    await OTP.findOneAndDelete({ email });
+
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      token: generateJwtToken(user._id),
     });
-
-    if (user) {
-        res.status(201).json({
-            _id: user.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            role: user.role,
-            token: generateJwtToken(user._id),
-        });
-    } else {
-        res.status(400);
-        throw new Error("Invalid User Data");
-    }
+  } else {
+    res.status(400);
+    throw new Error('Invalid User Data');
+  }
 });
 
 
 const registerSeller = asyncHandler(async (req, res) => {
-    const { name, email, password, businessName, studentName, businessDescription } = req.body;
+  const { name, email, password, otp, businessName, studentName, businessDescription } = req.body;
 
-    if (!name || !email || !password || !businessName || !studentName || !businessDescription) {
-        res.status(400);
-        throw new Error("All fields are compulsory");
-    }
+  // Validate required fields
+  if (!name || !email || !password || !otp || !businessName || !studentName || !businessDescription) {
+    res.status(400);
+    throw new Error('All fields are compulsory');
+  }
 
-    const userExists = await User.findOne({ email });
+  // Verify OTP
+  const otpRecord = await OTP.findOne({ email });
+  if (!otpRecord) {
+    res.status(400);
+    throw new Error('OTP has expired or was never sent. Please request a new one.');
+  }
 
-    if (userExists) {
-        res.status(400);
-        throw new Error('User already exists');
-    }
+  if (otpRecord.otp !== otp) {
+    res.status(400);
+    throw new Error('Invalid OTP');
+  }
 
-    const salt = await bycrypt.genSalt(10);
-    const hashed = await bycrypt.hash(password, salt);
+  // Check if user already exists
+  const userExists = await User.findOne({ email });
+  if (userExists) {
+    res.status(400);
+    throw new Error('User already exists');
+  }
 
-    const user = await User.create({ name, email, password: hashed, role: "seller_pending" });
+  // Hash password
+  const salt = await bycrypt.genSalt(10);
+  const hashedPassword = await bycrypt.hash(password, salt);
 
-    if (user) {
-        res.status(201).json({
-            _id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            sellerDetails:{
-                businessName,
-                studentName,
-                businessDescription,
-            },
-            token: generateJwtToken(user._id)
-        });
-    } else {
-        res.status(400);
-        throw new Error("Invalid User Data");
-    }
+  // Create user with seller_pending role
+  const user = await User.create({
+    name,
+    email,
+    password: hashedPassword,
+    role: 'seller_pending'
+  });
+
+  if (user) {
+    // Delete the OTP record since it's been used
+    await OTP.findOneAndDelete({ email });
+
+    // Create seller profile
+    const sellerProfile = await SellerProfile.create({
+      userId: user._id,
+      businessName,
+      studentName,
+      businessDescription,
+      verificationStatus: 'pending',
+      verificationSubmittedAt: new Date()
+    });
+
+    // Return user data with token
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      sellerProfile: {
+        businessName: sellerProfile.businessName,
+        studentName: sellerProfile.studentName,
+        businessDescription: sellerProfile.businessDescription,
+        verificationStatus: sellerProfile.verificationStatus
+      },
+      token: generateJwtToken(user._id)
+    });
+  } else {
+    res.status(400);
+    throw new Error('Invalid User Data');
+  }
 });
+
 
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
+    
     const user = await User.findOne({ email });
-    console.log(user)
-
+    
     if (user && (await bycrypt.compare(password, user.password))) {
-        res.json({ _id: user.id, name: user.name, email: user.email, role: user.role, token: generateJwtToken(user._id) });
+        // Check if user is a seller and fetch seller profile
+        let sellerProfileData = null;
+        if (user.role === 'seller_pending' || user.role === 'seller') {
+            const sellerProfile = await SellerProfile.findOne({ userId: user._id });
+            if (sellerProfile) {
+                sellerProfileData = {
+                    businessName: sellerProfile.businessName,
+                    verificationStatus: sellerProfile.verificationStatus
+                };
+            }
+        }
+        
+        res.json({ 
+            _id: user.id, 
+            name: user.name, 
+            email: user.email, 
+            role: user.role, 
+            sellerProfile: sellerProfileData,
+            token: generateJwtToken(user._id) 
+        });
     } else {
-        res.status(400);
-        throw new Error("Invalid data, sign up first. ");
+        res.status(401);
+        throw new Error("Invalid credentials");
     }
-});
-
-const getCurrentUser = asyncHandler(async (req, res) => {
-    res.json({ message: "Current User Data" });
 });
 
 
 const generateJwtToken = id => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '5d' });
 
-module.exports = { registerBuyer, registerSeller, loginUser, getCurrentUser };
+module.exports = { registerBuyer, registerSeller, loginUser, requestEmailOTP};

@@ -18,23 +18,16 @@ const userSchema = mongoose.Schema(
             required: [true, 'Password is required']
         },
 
-        phone: { type: String, required: true, unique: true },
+        phone: { type: String, unique: true },
 
         
         verified: { type: Boolean, default: false },
 
         role: {
             type: String,
-            enum: ["buyer", "seller", "admin", "seller_pending"],
+            enum: ["buyer", "seller_pending", "seller"],
             default: "buyer"
         },
-
-        sellerDetails: {
-            businessName: { type: String },
-            studentName: { type: String },
-            businessDescription: { type: String }
-        },
-
     },
 
     {

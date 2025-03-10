@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Signup from './components/Signup';
 import Login from './components/login';
+import SellerSignup from "./components/sellerSignup";
 import Layout from './components/Layout'; 
 import HomePage from './components/homepage';
 import Cart from './components/cart';
@@ -18,6 +19,7 @@ function App() {
       {/* Routes without Navbar */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/seller-signup" element={<SellerSignup />} />
     </Routes>
   );
 }
