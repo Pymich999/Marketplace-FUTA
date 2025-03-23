@@ -21,6 +21,17 @@ const mergeTags = (...arrays) => {
     return Array.from(tagSets);
 };
 
+const getSellerProducts = asyncHandler(async (req, res) => {
+    // Get the current seller's ID from the authenticated user
+    const sellerId = req.user._id;
+    
+    // Find all products where the seller field matches the current user's ID
+    const products = await product.find({ seller: sellerId });
+    
+    // Return the products
+    res.status(200).json(products);
+});
+
 const CreateProduct = asyncHandler(async (req, res) => {
     try {
         const sellerId = req.user.id;
@@ -143,4 +154,4 @@ const getProductById = async (req, res) => {
     }
 };
 
-module.exports = { CreateProduct, getProducts, updateProduct, deleteProduct, getProductById };
+module.exports = { CreateProduct, getProducts, updateProduct, deleteProduct, getProductById, getSellerProducts };

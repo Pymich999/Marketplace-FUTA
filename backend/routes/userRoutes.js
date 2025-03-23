@@ -8,7 +8,7 @@ router.post('/', registerBuyer)
 
 router.post('/request-otp', requestEmailOTP);
 
-router.post('/register-seller', registerSeller)
+router.post('/seller-signup', registerSeller)
 
 router.post('/login', loginUser)
 
