@@ -34,6 +34,25 @@ const getSellerProducts = asyncHandler(async (req, res) => {
 
 const CreateProduct = asyncHandler(async (req, res) => {
     try {
+         // Convert comma-separated string to array
+    if (typeof req.body.images === 'string') {
+      req.body.images = req.body.images.split(',');
+    }
+
+    // Existing validation
+    if (!req.body.images || !Array.isArray(req.body.images)) {
+      return res.status(400).json({ message: 'Invalid images data' });
+    }
+
+    const cloudinaryRegex = new RegExp(
+      `^https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/`
+    );
+
+    if (!req.body.images.every(url => cloudinaryRegex.test(url))) {
+      return res.status(400).json({ message: 'Invalid image URLs detected' });
+    }
+
+
         const sellerId = req.user.id;
 
         const {
@@ -45,6 +64,11 @@ const CreateProduct = asyncHandler(async (req, res) => {
             tags,
             images,
         } = req.body;
+
+        if (!title || !description || !price || !images) {
+            res.status(400)
+            throw new Error("All fields are required to create a product")
+        }
 
         let autoTags = tags;
         if (!autoTags || !Array.isArray(autoTags) || autoTags.length === 0) {

@@ -26,12 +26,15 @@ const productSchema = new moongoose.Schema(
             ref: 'User',
             required: true
         },
-        images: [
-            {
-                // Array of image URLs (e.g., uploaded to Cloudinary)
-                type: String,
-            }
-        ],
+        images: [{
+           type: String,
+           validate: {
+             validator: function(v) {
+             return /^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/.*/.test(v);
+            },
+           message: props => `${props.value} is not a valid Cloudinary URL`
+         }
+        }],
         tags: [
             {
                 // Tags help in searching and AI recommendations
