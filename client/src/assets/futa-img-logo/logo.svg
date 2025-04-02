@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+  <!-- Background Circle -->
+  <circle cx="150" cy="150" r="140" fill="#f8f8f8" stroke="#6a0dad" stroke-width="4"/>
+  
+  <!-- FUTA-inspired elements -->
+  <path d="M150 40 L220 110 L150 180 L80 110 Z" fill="#8a2be2" stroke="#6a0dad" stroke-width="2"/>
+  <circle cx="150" cy="110" r="30" fill="#f8f8f8" stroke="#6a0dad" stroke-width="2"/>
+  
+  <!-- Marketplace elements -->
+  <rect x="90" y="180" width="120" height="50" rx="10" fill="#6a0dad"/>
+  <text x="150" y="212" font-family="Arial, sans-serif" font-size="16" fill="#ffffff" text-anchor="middle" font-weight="bold">MARKETPLACE</text>
+  
+  <!-- FUTA text -->
+  <text x="150" y="115" font-family="Arial, sans-serif" font-size="20" fill="#6a0dad" text-anchor="middle" font-weight="bold">FUTA</text>
+  
+  <!-- Stylized shopping bag icon -->
+  <path d="M150 140 L130 160 L130 180 L170 180 L170 160 Z" fill="#9370db" stroke="#6a0dad" stroke-width="2"/>
+  <path d="M130 150 L125 140 L175 140 L170 150" fill="none" stroke="#6a0dad" stroke-width="2"/>
+</svg>
