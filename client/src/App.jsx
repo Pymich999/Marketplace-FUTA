@@ -5,6 +5,7 @@ import Login from './components/pages/login';
 import SellerSignup from "./components/pages/sellerSignup";
 import Layout from './components/Layout'; 
 import HomePage from './components/pages/homepage';
+import AdminDashboard from "./components/pages/adminDashboard";
 import SellerDashboard from "./components/pages/seller-dashboard";
 import Cart from './components/pages/cart';
 
@@ -22,6 +23,7 @@ function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/seller-signup" element={<SellerSignup />} />
       <Route path="/seller-dashboard" element={<SellerDashboard />} />
+      <Route path="/admin" element={<AdminDashboard />} />
     </Routes>
   );
 }

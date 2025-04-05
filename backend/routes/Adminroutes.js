@@ -9,7 +9,7 @@ const {
 } = require('../controllers/adminController');
 
 // Routes for admin
-router.get('/pending', protect, isAdmin, getPendingSellerRequests);
-router.put('/verify', protect, isAdmin,  updateSellerVerification);
+router.get('/sellers/pending', protect, isAdmin, getPendingSellerRequests);
+router.put('/sellers/verify', protect, isAdmin,  updateSellerVerification);
 
 module.exports = router;

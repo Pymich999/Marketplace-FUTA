@@ -16,7 +16,11 @@ const Login = () => {
             // Redirect based on user role
             if (user.role === "seller") {
                 navigate("/seller-dashboard");
-            } else {
+            } else if(user.role === "admin"){
+                navigate("/admin")
+            } 
+
+            else {
                 // Default to home page for buyers and other roles
                 navigate("/");
             }
