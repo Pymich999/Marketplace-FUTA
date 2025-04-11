@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Link } from 'react-router-dom';
-import { FaShoppingCart, FaArrowLeft, FaStar, FaHeart, FaShare, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaShoppingCart, FaArrowLeft, FaStar, FaHeart, FaShare, FaChevronLeft, FaChevronRight, FaStore } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "../../features/cart/cartSlice";
 import Navbar from "../navbar";
@@ -60,6 +60,12 @@ const HomePage = () => {
       return () => clearInterval(interval);
     }
   }, [selectedProduct]);
+
+  const handleSellerSignup = () => {
+    // Clear user data from localStorage before redirecting
+    localStorage.removeItem('user');
+    window.location.href = '/seller-signup';
+  };
 
   const filteredProducts = products.filter((product) => {
     const searchTerm = search.toLowerCase().trim();
@@ -143,212 +149,227 @@ const HomePage = () => {
     return `₦${price.toLocaleString()}`;
   };
 
-  if (isDetailOpen && selectedProduct) {
-    return (
-      <div className="product-detail-container">
-        <div className="product-detail-header">
+  // Header component with Become a Seller button
+  const Header = () => (
+    <div className="site-header">
+      <div className="header-main">
+        <div className="header-logo">
+          <Link to="/">FUTA Marketplace</Link>
+        </div>
+        <div className="header-actions">
+          <Link to="/cart" className="cart-icon">
+            <FaShoppingCart />
+          </Link>
           <button 
-            className="back-button" 
-            onClick={handleCloseDetail}
-            aria-label="Go back to products"
+            className="become-seller-button"
+            onClick={handleSellerSignup}
           >
-            <FaArrowLeft /> Back to Products
+            <FaStore /> Become a Seller
           </button>
         </div>
-        
-        <div className="product-detail-content">
-          <div className="product-detail-gallery">
-            {selectedProduct.images && selectedProduct.images.length > 0 ? (
-              <div className="main-image-container">
-                <img 
-                  src={selectedProduct.images[currentImageIndex]} 
-                  alt={selectedProduct.title} 
-                  className="product-detail-image"
-                />
-              </div>
-            ) : (
-              <div className="product-detail-placeholder">
-                No image available
-              </div>
-            )}
-            
-            {selectedProduct.images && selectedProduct.images.length > 1 && (
-              <div className="thumbnail-container">
-                <button 
-                  className="thumbnail-nav-button left"
-                  onClick={() => scrollThumbnails('left')}
-                  aria-label="Scroll thumbnails left"
-                >
-                  <FaChevronLeft />
-                </button>
-                
-                <div className="product-detail-thumbnails" ref={scrollRef}>
-                  {selectedProduct.images.map((image, index) => (
-                    <div 
-                      key={index} 
-                      className={`product-thumbnail-container ${index === currentImageIndex ? 'active' : ''}`}
-                      onClick={() => handleThumbnailClick(index)}
-                    >
-                      <img 
-                        src={image} 
-                        alt={`${selectedProduct.title} thumbnail ${index}`} 
-                        loading="lazy"
-                      />
-                    </div>
-                  ))}
-                </div>
-                
-                <button 
-                  className="thumbnail-nav-button right"
-                  onClick={() => scrollThumbnails('right')}
-                  aria-label="Scroll thumbnails right"
-                >
-                  <FaChevronRight />
-                </button>
-              </div>
-            )}
-          </div>
-          
-          <div className="product-detail-info">
-            <h1 className="product-detail-title">{selectedProduct.title}</h1>
-            
-            <div className="product-detail-meta">
-              <div className="product-detail-category">
-                {selectedProduct.category.split(',').map((cat, index) => (
-                  <span key={index} className="category-badge">
-                    {cat.trim()}
-                  </span>
-                ))}
-              </div>
-              
-              <div className="product-detail-rating">
-                <span className="rating-stars">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <FaStar key={star} />
-                  ))}
-                </span>
-                <span className="rating-count">(24 reviews)</span>
-              </div>
-            </div>
-            
-            <div className="product-detail-price">
-              {formatPrice(selectedProduct.price)}
-            </div>
-            
-            <div className="product-detail-description">
-              <p>{selectedProduct.description}</p>
-            </div>
-            
-            <div className="product-detail-stock">
-              <span className={selectedProduct.stock > 10 ? 'in-stock' : 'low-stock'}>
-                {selectedProduct.stock > 0 
-                  ? `In Stock (${selectedProduct.stock} available)` 
-                  : 'Out of Stock'}
-              </span>
-            </div>
-            
-            <div className="product-detail-actions">
-              <div className="quantity-selector">
-                <button 
-                  className="quantity-button"
-                  onClick={() => handleQuantityChange(quantity - 1)}
-                  disabled={quantity <= 1}
-                >
-                  -
-                </button>
-                <span className="quantity-value">{quantity}</span>
-                <button 
-                  className="quantity-button"
-                  onClick={() => handleQuantityChange(quantity + 1)}
-                  disabled={quantity >= selectedProduct.stock}
-                >
-                  +
-                </button>
-              </div>
-              
-              <div className="cart-buttons">
-                <button 
-                  className={`add-to-cart-detail ${addingToCart[selectedProduct._id] ? 'loading' : ''}`}
-                  onClick={() => handleAddToCart(selectedProduct._id, quantity)}
-                  disabled={addingToCart[selectedProduct._id] || cartLoading || selectedProduct.stock <= 0}
-                >
-                  <FaShoppingCart />
-                  {addingToCart[selectedProduct._id] ? 'Adding...' : 'Add to Cart'}
-                </button>
-                
-                <button className="buy-now-button">
-                  Buy Now
-                </button>
-              </div>
-            </div>
-            
-            <div className="product-detail-extra-actions">
-              <button className="wishlist-button">
-                <FaHeart /> Add to Wishlist
-              </button>
-              <button className="share-button">
-                <FaShare /> Share
-              </button>
-            </div>
-            
-            {selectedProduct.tags && selectedProduct.tags.length > 0 && (
-              <div className="product-detail-tags">
-                <span className="tags-title">Tags:</span>
-                {selectedProduct.tags.map((tag, index) => (
-                  <span key={index} className="tag-badge">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="product-detail-sections">
-          <div className="product-detail-section">
-            <h2>Product Details</h2>
-            <p>This product is sold by a verified seller on FUTA Marketplace.</p>
-            <p>Created: {new Date(selectedProduct.createdAt).toLocaleDateString()}</p>
-            <p>Last Updated: {new Date(selectedProduct.updatedAt).toLocaleDateString()}</p>
-          </div>
-          
-          <div className="product-detail-section">
-            <h2>Reviews & Ratings</h2>
-            <p>No reviews yet. Be the first to review this product!</p>
-          </div>
-        </div>
-        
-        <div className="related-products">
-          <h2>You May Also Like</h2>
-          <div className="related-products-grid">
-            {products
-              .filter(p => 
-                p._id !== selectedProduct._id && 
-                p.category.split(',').some(cat => 
-                  selectedProduct.category.includes(cat.trim())
-                )
-              )
-              .slice(0, 4)
-              .map((product) => (
-                <div key={product._id} className="related-product-card">
-                  <img 
-                    src={product.images && product.images[0]} 
-                    alt={product.title} 
-                    onClick={() => handleProductClick(product)}
-                  />
-                  <h3>{product.title}</h3>
-                  <p className="price">{formatPrice(product.price)}</p>
-                </div>
-              ))
-            }
-          </div>
-        </div>
       </div>
+    </div>
+  );
+
+  if (isDetailOpen && selectedProduct) {
+    return (
+      <>
+        <Header />
+        <div className="product-detail-container">
+          <div className="product-detail-header">
+            <button 
+              className="back-button" 
+              onClick={handleCloseDetail}
+              aria-label="Go back to products"
+            >
+              <FaArrowLeft /> Back to Products
+            </button>
+          </div>
+          
+          <div className="product-detail-content">
+            <div className="product-detail-gallery">
+              {selectedProduct.images && selectedProduct.images.length > 0 ? (
+                <div className="main-image-container">
+                  <img 
+                    src={selectedProduct.images[currentImageIndex]} 
+                    alt={selectedProduct.title} 
+                    className="product-detail-image"
+                  />
+                </div>
+              ) : (
+                <div className="product-detail-placeholder">
+                  No image available
+                </div>
+              )}
+              
+              {selectedProduct.images && selectedProduct.images.length > 1 && (
+                <div className="thumbnail-container">
+                  <button 
+                    className="thumbnail-nav-button left"
+                    onClick={() => scrollThumbnails('left')}
+                    aria-label="Scroll thumbnails left"
+                  >
+                    <FaChevronLeft />
+                  </button>
+                  
+                  <div className="product-detail-thumbnails" ref={scrollRef}>
+                    {selectedProduct.images.map((image, index) => (
+                      <div 
+                        key={index} 
+                        className={`product-thumbnail-container ${index === currentImageIndex ? 'active' : ''}`}
+                        onClick={() => handleThumbnailClick(index)}
+                      >
+                        <img 
+                          src={image} 
+                          alt={`${selectedProduct.title} thumbnail ${index}`} 
+                          loading="lazy"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <button 
+                    className="thumbnail-nav-button right"
+                    onClick={() => scrollThumbnails('right')}
+                    aria-label="Scroll thumbnails right"
+                  >
+                    <FaChevronRight />
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            <div className="product-detail-info">
+              <h1 className="product-detail-title">{selectedProduct.title}</h1>
+              
+              <div className="product-detail-meta">
+                <div className="product-detail-category">
+                  {selectedProduct.category.split(',').map((cat, index) => (
+                    <span key={index} className="category-badge">
+                      {cat.trim()}
+                    </span>
+                  ))}
+                </div>
+                
+                <div className="product-detail-rating">
+                  <span className="rating-stars">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <FaStar key={star} />
+                    ))}
+                  </span>
+                  <span className="rating-count">(24 reviews)</span>
+                </div>
+              </div>
+              
+              <div className="product-detail-price">
+                {formatPrice(selectedProduct.price)}
+              </div>
+              
+              <div className="product-detail-description">
+                <p>{selectedProduct.description}</p>
+              </div>
+              
+              <div className="product-detail-stock">
+                <span className={selectedProduct.stock > 10 ? 'in-stock' : 'low-stock'}>
+                  {selectedProduct.stock > 0 
+                    ? `In Stock (${selectedProduct.stock} available)` 
+                    : 'Out of Stock'}
+                </span>
+              </div>
+              
+              <div className="product-detail-actions">
+                <div className="quantity-selector">
+                  <button 
+                    className="quantity-button"
+                    onClick={() => handleQuantityChange(quantity - 1)}
+                    disabled={quantity <= 1}
+                  >
+                    -
+                  </button>
+                  <span className="quantity-value">{quantity}</span>
+                  <button 
+                    className="quantity-button"
+                    onClick={() => handleQuantityChange(quantity + 1)}
+                    disabled={quantity >= selectedProduct.stock}
+                  >
+                    +
+                  </button>
+                </div>
+                
+                <div className="cart-buttons">
+                  <button 
+                    className={`add-to-cart-detail ${addingToCart[selectedProduct._id] ? 'loading' : ''}`}
+                    onClick={() => handleAddToCart(selectedProduct._id, quantity)}
+                    disabled={addingToCart[selectedProduct._id] || cartLoading || selectedProduct.stock <= 0}
+                  >
+                    <FaShoppingCart />
+                    {addingToCart[selectedProduct._id] ? 'Adding...' : 'Add to Cart'}
+                  </button>
+                  
+                  <button className="buy-now-button">
+                    Buy Now
+                  </button>
+                </div>
+              </div>
+              
+              <div className="product-detail-extra-actions">
+                <button className="wishlist-button">
+                  <FaHeart /> Add to Wishlist
+                </button>
+                <button className="share-button">
+                  <FaShare /> Share
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="product-detail-sections">
+            <div className="product-detail-section">
+              <h2>Product Details</h2>
+              <p>This product is sold by a verified seller on FUTA Marketplace.</p>
+              <p>Created: {new Date(selectedProduct.createdAt).toLocaleDateString()}</p>
+              <p>Last Updated: {new Date(selectedProduct.updatedAt).toLocaleDateString()}</p>
+            </div>
+            
+            <div className="product-detail-section">
+              <h2>Reviews & Ratings</h2>
+              <p>No reviews yet. Be the first to review this product!</p>
+            </div>
+          </div>
+          
+          <div className="related-products">
+            <h2>You May Also Like</h2>
+            <div className="related-products-grid">
+              {products
+                .filter(p => 
+                  p._id !== selectedProduct._id && 
+                  p.category.split(',').some(cat => 
+                    selectedProduct.category.includes(cat.trim())
+                  )
+                )
+                .slice(0, 4)
+                .map((product) => (
+                  <div key={product._id} className="related-product-card">
+                    <img 
+                      src={product.images && product.images[0]} 
+                      alt={product.title} 
+                      onClick={() => handleProductClick(product)}
+                    />
+                    <h3>{product.title}</h3>
+                    <p className="price">{formatPrice(product.price)}</p>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      <Header />
       <header className="hero">
         <div className="hero-content">
           <h1>FUTA Marketplace</h1>
@@ -362,6 +383,18 @@ const HomePage = () => {
               aria-label="Search products"
             />
             <button className="search-button">Search</button>
+          </div>
+          <div className="seller-cta-banner">
+            <div className="seller-cta-content">
+              <h2>Start selling on FUTA Marketplace today!</h2>
+              <p>Reach thousands of students and earn money with your products</p>
+              <button 
+                className="seller-cta-button"
+                onClick={handleSellerSignup}
+              >
+                <FaStore /> Become a Seller
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -510,10 +543,6 @@ const HomePage = () => {
         
         <div className="footer-bottom">
           <p>© 2025 FUTA Marketplace. All rights reserved.</p>
-        </div>
-
-        <div className="auth-prompt">
-          Want to be a seller? register as a seller here? <Link to="/seller-signup">HERE</Link>
         </div>
       </footer>
     </>

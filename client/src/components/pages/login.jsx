@@ -18,7 +18,9 @@ const Login = () => {
                 navigate("/seller-dashboard");
             } else if(user.role === "admin"){
                 navigate("/admin")
-            } 
+            } else if(user.role === "seller_pending"){
+                navigate("/seller-dashboard")
+            }
 
             else {
                 // Default to home page for buyers and other roles

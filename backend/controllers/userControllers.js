@@ -140,6 +140,12 @@ const registerSeller = asyncHandler(async (req, res) => {
     throw new Error('User already exists');
   }
 
+  const phoneExists = await User.findOne({ phone }) || await SellerProfile.findOne({ phone });
+  if (phoneExists) {
+    res.status(400);
+    throw new Error('Phone number is already registered. Please use a different number.');
+  }
+
   // Hash password
   const salt = await bycrypt.genSalt(10);
   const hashedPassword = await bycrypt.hash(password, salt);

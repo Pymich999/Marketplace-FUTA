@@ -2074,3 +2074,380 @@ textarea.form-control {
   background-color: #fff;
   transform: scale(1.1);
 }
+
+/* Logout Button */
+.btn-logout {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 8px 16px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.btn-logout:hover {
+  background-color: #d32f2f;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  color: #333;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  gap: 10px;
+}
+
+.btn-cancel {
+  padding: 8px 16px;
+  background-color: #e0e0e0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-confirm {
+  padding: 8px 16px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-confirm:hover {
+  background-color: #d32f2f;
+}
+
+/* Header Styles */
+.site-header {
+  background-color: #7b4397; /* Purple header background */
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.header-logo a {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  text-decoration: none;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.cart-icon {
+  font-size: 1.25rem;
+  color: white;
+  text-decoration: none;
+}
+
+/* Seller Button Styles */
+.become-seller-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #ff8c00; /* Orange contrast */
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.become-seller-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.3);
+  background: #ff9d22;
+}
+
+.become-seller-button:active {
+  transform: translateY(1px);
+}
+
+/* Seller CTA Banner in Hero Section - REDUCED SIZE & NEW COLOR */
+.seller-cta-banner {
+  margin-top: 1.5rem;
+  margin-bottom: -0.5rem; /* Make it more compact */
+  background: linear-gradient(135deg, #198754, #20c997); /* Green gradient */
+  border-radius: 6px;
+  padding: 0.75rem 1.25rem; /* Reduced padding */
+  border-left: 3px solid #20c997;
+  max-width: 90%; /* Width control */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.seller-cta-content {
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.seller-cta-text {
+  flex: 1;
+  min-width: 200px;
+  text-align: left;
+}
+
+.seller-cta-content h2 {
+  font-size: 1.25rem;
+  margin-bottom: 0.25rem;
+  color: white;
+}
+
+.seller-cta-content p {
+  margin-bottom: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+}
+
+.seller-cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #ff8c00; /* Orange button to match header button */
+  color: white;
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  margin-left: 1rem;
+}
+
+.seller-cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #ff9d22;
+}
+
+.seller-cta-button:active {
+  transform: translateY(1px);
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+  .site-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .header-logo a {
+    font-size: 1.25rem;
+  }
+  
+  .become-seller-button {
+    font-size: 0.875rem;
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .seller-cta-banner {
+    padding: 0.75rem;
+    max-width: 95%;
+  }
+  
+  .seller-cta-content {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .seller-cta-text {
+    text-align: center;
+  }
+  
+  .seller-cta-content h2 {
+    font-size: 1.1rem;
+  }
+  
+  .seller-cta-content p {
+    font-size: 0.8rem;
+  }
+  
+  .seller-cta-button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.875rem;
+    margin-left: 0;
+  }
+}
+
+/* Toast Overrides */
+.Toastify__toast {
+  border-radius: 8px !important;
+  font-family: 'Segoe UI', sans-serif !important;
+}
+
+.Toastify__toast--success {
+  background: #4CAF50 !important;
+}
+
+.Toastify__toast--error {
+  background: #f44336 !important;
+}
+
+/* Seller Signup Specific Styles */
+.otp-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.otp-button {
+  background: #2196F3 !important;
+  margin-top: 1rem;
+}
+
+.verify-button {
+  background: #4CAF50 !important;
+  margin-top: 1rem;
+}
+
+.submit-button {
+  background: #673AB7 !important;
+  margin-top: 2rem;
+}
+
+.verification-success {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background: #e8f5e9;
+  border-radius: 4px;
+  margin-top: 1rem;
+  color: #2e7d32;
+}
+
+.verification-success i {
+  font-size: 1.2rem;
+}
+
+/* Spinner Animation */
+@keyframes spinner-border {
+  to { transform: rotate(360deg); }
+}
+
+.spinner-border {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  vertical-align: -0.125em;
+  border: 0.15em solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinner-border .75s linear infinite;
+}
+
+/* Utility Classes */
+.text-success { color: #4CAF50; }
+.text-muted { color: #6c757d; }
+.me-2 { margin-right: 0.5rem; }
+
+/* CSS styles for the verification pending page */
+.verification-pending {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f7f9fc;
+  padding: 20px;
+}
+
+.verification-content {
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  max-width: 700px;
+  width: 100%;
+  text-align: center;
+}
+
+.verification-content h1 {
+  color: #2c3e50;
+  margin-bottom: 30px;
+  font-size: 28px;
+}
+
+.verification-message {
+  background-color: #f1f8ff;
+  border-left: 4px solid #3498db;
+  padding: 20px;
+  margin-bottom: 30px;
+  text-align: left;
+  border-radius: 5px;
+}
+
+.verification-message p {
+  margin: 15px 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #34495e;
+}
+
+.verification-pending .btn-logout {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: background-color 0.3s;
+}
+
+.verification-pending .btn-logout:hover {
+  background-color: #2980b9;
+}

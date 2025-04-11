@@ -23,10 +23,15 @@ const SellerVerificationPanel = () => {
   const [error, setError] = useState(null);
   const [rejectionReasons, setRejectionReasons] = useState({});
   const [processing, setProcessing] = useState({});
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   
-  // Get user data from localStorage
   const user = JSON.parse(localStorage.getItem('user'));
   const userToken = user?.token;
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  };
 
   useEffect(() => {
     if (!userToken) {
@@ -92,142 +97,200 @@ const SellerVerificationPanel = () => {
     }));
   };
 
-  if (loading) {
+  // Logout confirmation modal
+  const renderLogoutModal = () => {
+    if (!showLogoutModal) return null;
+    
     return (
-      <Box display="flex" justifyContent="center" mt={4}>
-        <CircularProgress />
-      </Box>
+      <div className="modal-overlay">
+        <div className="modal-content">
+          <h3>Confirm Logout</h3>
+          <p>Are you sure you want to logout?</p>
+          <div className="modal-actions">
+            <button 
+              className="btn-cancel"
+              onClick={() => setShowLogoutModal(false)}
+            >
+              No, Cancel
+            </button>
+            <button 
+              className="btn-confirm"
+              onClick={handleLogout}
+            >
+              Yes, Logout
+            </button>
+          </div>
+        </div>
+      </div>
     );
-  }
+  };
 
-  if (error) {
-    return (
-      <Box mt={2}>
-        <Typography color="error">{error}</Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          onClick={() => window.location.reload()}
-          sx={{ mt: 2 }}
-        >
-          Refresh Page
-        </Button>
-      </Box>
-    );
-  }
+  // Logout button
+  const renderLogoutButton = () => (
+    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+      <Button
+        variant="contained"
+        color="error"
+        onClick={() => setShowLogoutModal(true)}
+        className="btn-logout"
+      >
+        Logout
+      </Button>
+    </Box>
+  );
 
-  if (pendingSellers.length === 0) {
+  // Main content rendering based on state
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <Box display="flex" justifyContent="center" mt={4}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (error) {
+      return (
+        <Box mt={2}>
+          <Typography color="error">{error}</Typography>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => window.location.reload()}
+            sx={{ mt: 2 }}
+          >
+            Refresh Page
+          </Button>
+        </Box>
+      );
+    }
+
+    if (pendingSellers.length === 0) {
+      return (
+        <Box mt={2}>
+          <Typography variant="h6" color="textSecondary">
+            No pending seller verification requests
+          </Typography>
+        </Box>
+      );
+    }
+
     return (
-      <Box mt={2}>
-        <Typography variant="h6" color="textSecondary">
-          No pending seller verification requests
+      <TableContainer component={Paper} sx={{ mt: 2 }}>
+        <Typography variant="h5" gutterBottom sx={{ p: 2 }}>
+          Seller Verification Requests
         </Typography>
-      </Box>
-    );
-  }
-
-  return (
-    <TableContainer component={Paper} sx={{ mt: 2 }}>
-      <Typography variant="h5" gutterBottom sx={{ p: 2 }}>
-        Seller Verification Requests
-      </Typography>
-      <Table>
-        <TableHead>
-          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-            <TableCell sx={{ fontWeight: 'bold' }}>Seller Name</TableCell>
-            <TableCell sx={{ fontWeight: 'bold' }}>Business Name</TableCell>
-            <TableCell sx={{ fontWeight: 'bold' }}>Business Description</TableCell>
-            <TableCell sx={{ fontWeight: 'bold' }}>Submitted At</TableCell>
-            <TableCell sx={{ fontWeight: 'bold' }}>Rejection Reason</TableCell>
-            <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {pendingSellers.map((seller) => (
-            <TableRow key={seller.user._id} hover>
-              <TableCell>{seller.user.name}</TableCell>
-              <TableCell>{seller.profile?.businessName || 'N/A'}</TableCell>
-              <TableCell sx={{ maxWidth: 300 }}>
-                {seller.profile?.businessDescription || 'No description provided'}
-              </TableCell>
-              <TableCell>
-                {seller.profile?.submittedAt 
-                  ? new Date(seller.profile.submittedAt).toLocaleString() 
-                  : 'N/A'}
-              </TableCell>
-              <TableCell>
-                {seller.profile?.verificationStatus === 'pending' ? (
-                  <TextField
-                    size="small"
-                    label="Reason (if rejecting)"
-                    value={rejectionReasons[seller.user._id] || ''}
-                    onChange={(e) =>
-                      handleRejectionReasonChange(seller.user._id, e.target.value)
-                    }
-                    fullWidth
-                    sx={{ minWidth: 200 }}
-                  />
-                ) : seller.profile?.verificationStatus === 'rejected' ? (
-                  <Chip
-                    label={seller.profile.rejectionReason || 'No reason provided'}
-                    color="error"
-                    size="small"
-                  />
-                ) : null}
-              </TableCell>
-              <TableCell>
-                {seller.profile?.verificationStatus === 'pending' ? (
-                  <Box display="flex" gap={1}>
-                    <Button
-                      variant="contained"
-                      color="success"
+        <Table>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+              <TableCell sx={{ fontWeight: 'bold' }}>Seller Name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Business Name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Business Description</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Submitted At</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Rejection Reason</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {pendingSellers.map((seller) => (
+              <TableRow key={seller.user._id} hover>
+                <TableCell>{seller.user.name}</TableCell>
+                <TableCell>{seller.profile?.businessName || 'N/A'}</TableCell>
+                <TableCell sx={{ maxWidth: 300 }}>
+                  {seller.profile?.businessDescription || 'No description provided'}
+                </TableCell>
+                <TableCell>
+                  {seller.profile?.submittedAt 
+                    ? new Date(seller.profile.submittedAt).toLocaleString() 
+                    : 'N/A'}
+                </TableCell>
+                <TableCell>
+                  {seller.profile?.verificationStatus === 'pending' ? (
+                    <TextField
                       size="small"
-                      disabled={processing[seller.user._id]}
-                      onClick={() => handleVerification(seller.user._id, 'approve')}
-                      sx={{ minWidth: 100 }}
-                    >
-                      {processing[seller.user._id] ? (
-                        <CircularProgress size={20} color="inherit" />
-                      ) : (
-                        'Approve'
-                      )}
-                    </Button>
-                    <Button
-                      variant="outlined"
+                      label="Reason (if rejecting)"
+                      value={rejectionReasons[seller.user._id] || ''}
+                      onChange={(e) =>
+                        handleRejectionReasonChange(seller.user._id, e.target.value)
+                      }
+                      fullWidth
+                      sx={{ minWidth: 200 }}
+                    />
+                  ) : seller.profile?.verificationStatus === 'rejected' ? (
+                    <Chip
+                      label={seller.profile.rejectionReason || 'No reason provided'}
                       color="error"
                       size="small"
-                      disabled={processing[seller.user._id]}
-                      onClick={() => handleVerification(seller.user._id, 'reject')}
-                      sx={{ minWidth: 100 }}
-                    >
-                      {processing[seller.user._id] ? (
-                        <CircularProgress size={20} />
-                      ) : (
-                        'Reject'
-                      )}
-                    </Button>
-                  </Box>
-                ) : seller.profile?.verificationStatus === 'approved' ? (
-                  <Chip 
-                    label="Approved" 
-                    color="success" 
-                    size="small" 
-                    variant="outlined"
-                  />
-                ) : (
-                  <Chip 
-                    label="Rejected" 
-                    color="error" 
-                    size="small" 
-                    variant="outlined"
-                  />
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+                    />
+                  ) : null}
+                </TableCell>
+                <TableCell>
+                  {seller.profile?.verificationStatus === 'pending' ? (
+                    <Box display="flex" gap={1}>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        size="small"
+                        disabled={processing[seller.user._id]}
+                        onClick={() => handleVerification(seller.user._id, 'approve')}
+                        sx={{ minWidth: 100 }}
+                      >
+                        {processing[seller.user._id] ? (
+                          <CircularProgress size={20} color="inherit" />
+                        ) : (
+                          'Approve'
+                        )}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        disabled={processing[seller.user._id]}
+                        onClick={() => handleVerification(seller.user._id, 'reject')}
+                        sx={{ minWidth: 100 }}
+                      >
+                        {processing[seller.user._id] ? (
+                          <CircularProgress size={20} />
+                        ) : (
+                          'Reject'
+                        )}
+                      </Button>
+                    </Box>
+                  ) : seller.profile?.verificationStatus === 'approved' ? (
+                    <Chip 
+                      label="Approved" 
+                      color="success" 
+                      size="small" 
+                      variant="outlined"
+                    />
+                  ) : (
+                    <Chip 
+                      label="Rejected" 
+                      color="error" 
+                      size="small" 
+                      variant="outlined"
+                    />
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
+  };
+
+  return (
+    <>
+      {renderLogoutModal()}
+      {renderLogoutButton()}
+      <Box>
+        <Typography variant="h5" gutterBottom>
+          Seller Verification Requests
+        </Typography>
+        {renderContent()}
+      </Box>
+    </>
   );
 };
 

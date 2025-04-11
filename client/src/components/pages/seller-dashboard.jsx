@@ -13,6 +13,12 @@ const SellerDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  // State for logout confirmation modal
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  
+  // User state
+  const [user, setUser] = useState(null);
+  
   // Stats
   const [stats, setStats] = useState({
     totalProducts: 0
@@ -35,6 +41,12 @@ const SellerDashboard = () => {
   // Selected product for editing
   const [selectedProduct, setSelectedProduct] = useState(null);
   
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    window.location.href = '/login'; // Redirect to login page
+  };
+  
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
@@ -42,8 +54,9 @@ const SellerDashboard = () => {
         const userString = localStorage.getItem('user');
         
         if (userString) {
-          const user = JSON.parse(userString);
-          const token = user.token;
+          const userData = JSON.parse(userString);
+          setUser(userData);
+          const token = userData.token;
           
           if (token) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -52,15 +65,18 @@ const SellerDashboard = () => {
             setIsLoading(false);
             return;
           }
+          
+          // Only fetch products if user is a verified seller
+          if (userData.role !== 'seller_pending') {
+            const productsResponse = await axios.get('http://localhost:3000/api/products/seller');
+            setProducts(productsResponse.data);
+            calculateStats(productsResponse.data);
+          }
         } else {
           setError('User data not found. Please log in again.');
           setIsLoading(false);
           return;
         }
-        
-        const productsResponse = await axios.get('http://localhost:3000/api/products/seller');
-        setProducts(productsResponse.data);
-        calculateStats(productsResponse.data);
       } catch (err) {
         console.error('Dashboard data error:', err);
         setError('Failed to load dashboard data. Please make sure you are logged in as a seller.');
@@ -260,11 +276,88 @@ const SellerDashboard = () => {
 
   if (isLoading) return <div className="loading">Loading dashboard...</div>;
   if (error) return <div className="error-message">{error}</div>;
+  
+  // Check if user role is seller_pending
+  if (user?.role === 'seller_pending') {
+    return (
+      <div className="verification-pending">
+        <div className="verification-content">
+          <h1>FUTA-Marketplace Seller Verification</h1>
+          <div className="verification-message">
+            <p><strong>Thank you for registering as a seller!</strong></p>
+            <p><strong>Your account is currently pending verification. This process typically takes 2-4 hours.</strong></p>
+            <p><strong>Once verified, you'll be able to upload and sell your products on FUTA-Marketplace.</strong></p>
+            <p><strong>We appreciate your patience and look forward to having you as part of our marketplace community!</strong></p>
+          </div>
+          <button 
+            className="btn-logout"
+            onClick={() => setShowLogoutModal(true)}
+          >
+            Logout
+          </button>
+        </div>
+        
+        {/* Logout Confirmation Modal */}
+        {showLogoutModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3>Confirm Logout</h3>
+              <p>Are you sure you want to logout?</p>
+              <div className="modal-actions">
+                <button 
+                  className="btn-cancel"
+                  onClick={() => setShowLogoutModal(false)}
+                >
+                  No, Cancel
+                </button>
+                <button 
+                  className="btn-confirm"
+                  onClick={handleLogout}
+                >
+                  Yes, Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="seller-dashboard">
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Confirm Logout</h3>
+            <p>Are you sure you want to logout?</p>
+            <div className="modal-actions">
+              <button 
+                className="btn-cancel"
+                onClick={() => setShowLogoutModal(false)}
+              >
+                No, Cancel
+              </button>
+              <button 
+                className="btn-confirm"
+                onClick={handleLogout}
+              >
+                Yes, Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <header className="dashboard-header">
         <h1>Futa Marketplace - Seller Dashboard</h1>
+        <button 
+          className="btn-logout"
+          onClick={() => setShowLogoutModal(true)}
+        >
+          Logout
+        </button>
       </header>
       
       <div className="dashboard-content">

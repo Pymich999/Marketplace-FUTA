@@ -32,10 +32,15 @@ function SellerSignup() {
 
   useEffect(() => {
     if (isSuccess || user) {
+      toast.success("Seller account created successfully!");
       navigate("/seller-dashboard");
     }
     if (isError) {
-      toast.error(message);
+      if (message.includes('duplicate key') && message.includes('phone')) {
+        toast.error("This phone number is already registered. Please use a different number.");
+      } else {
+        toast.error(message);
+      }
     }
     dispatch(reset());
   }, [user, isSuccess, isError, message, navigate, dispatch]);
@@ -47,7 +52,7 @@ function SellerSignup() {
   // Request OTP via email
   const requestEmailOTP = async () => {
     if (!formData.email) {
-      toast.error("Enter email address first!");
+      toast.error("Please enter your email address first!");
       return;
     }
 
@@ -66,7 +71,14 @@ function SellerSignup() {
       
       if (response.ok) {
         setOtpSent(true);
-        toast.success("OTP sent to your email!");
+        toast.success("OTP has been sent to your email! Check your inbox.", {
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+        });
       } else {
         toast.error(data.message || "Failed to send OTP. Please try again.");
       }
@@ -81,18 +93,24 @@ function SellerSignup() {
   // Verify OTP before form submission
   const verifyOTP = async () => {
     if (!formData.otp) {
-      toast.error("Enter OTP first!");
+      toast.error("Please enter the OTP first!");
       return;
     }
 
     setIsVerifyingOtp(true);
     
     try {
-      // Add actual OTP verification API call here if needed
-      // For now, just simulating verification
+      // Simulate API call with timeout
       setTimeout(() => {
         setOtpVerified(true);
-        toast.success("OTP verified successfully. You can now submit the form.");
+        toast.success("🎉 OTP verified successfully! You can now submit your seller application.", {
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+        });
         setIsVerifyingOtp(false);
       }, 1000);
     } catch (error) {
@@ -104,22 +122,27 @@ function SellerSignup() {
   const onSubmit = (e) => {
     e.preventDefault();
 
+    // Validate required fields
     if (!phone || phone.trim() === '') {
-    toast.error('Phone number is required');
-    return;
+      toast.error("Phone number is required");
+      return;
     }
     
-
     if (!otpSent) {
-      toast.error("Request an OTP first!");
+      toast.error("Please request an OTP first!");
       return;
     }
     
     if (!formData.otp) {
-      toast.error("Enter the OTP sent to your email!");
+      toast.error("Please enter the OTP sent to your email!");
       return;
     }
     
+    if (!otpVerified) {
+      toast.error("Please verify your OTP first!");
+      return;
+    }
+
     // Send the entire form data including OTP to the server
     dispatch(sellerSignup(formData));
   };
@@ -180,18 +203,17 @@ function SellerSignup() {
             />
           </div>
           
-
           <div className='form-group'>
-          <label htmlFor='phone'>Enter Phone Number</label>
-          <input 
-            type="text" 
-            name="phone" 
-            value={phone} 
-            onChange={onChange} 
-            placeholder="Phone Number" 
-            className="signup-input" 
-            required 
-          />
+            <label htmlFor='phone'>Phone Number</label>
+            <input 
+              type="text" 
+              name="phone" 
+              value={phone} 
+              onChange={onChange} 
+              placeholder="Enter your phone number" 
+              className="form-control" 
+              required 
+            />
           </div>
           
           <div className="form-group">
@@ -236,54 +258,75 @@ function SellerSignup() {
             ></textarea>
           </div>
 
-          {/* Request Email OTP Button */}
-          {!otpSent && (
-            <button 
-              type="button" 
-              onClick={requestEmailOTP} 
-              className="auth-button"
-              disabled={isRequestingOtp}
-            >
-              {isRequestingOtp ? "Sending OTP..." : "Send OTP"}
-            </button>
-          )}
-
-          {/* OTP Input Field shown once OTP is sent */}
-          {otpSent && (
-            <>
-              <div className="form-group">
-                <label htmlFor="otp">OTP Verification</label>
-                <input 
-                  type="text" 
-                  className="form-control"
-                  id="otp"
-                  name="otp" 
-                  value={formData.otp} 
-                  onChange={onChange} 
-                  placeholder="Enter OTP from Email" 
-                  required 
-                />
-              </div>
-              
-              {!otpVerified && (
-                <button 
-                  type="button" 
-                  onClick={verifyOTP} 
-                  className="auth-button"
-                  disabled={isVerifyingOtp}
-                >
-                  {isVerifyingOtp ? "Verifying..." : "Verify OTP"}
-                </button>
-              )}
-            </>
-          )}
+          {/* OTP Section */}
+          <div className="otp-section">
+            {!otpSent ? (
+              <button 
+                type="button" 
+                onClick={requestEmailOTP} 
+                className="auth-button otp-button"
+                disabled={isRequestingOtp}
+              >
+                {isRequestingOtp ? "Sending OTP..." : "Send Verification OTP"}
+              </button>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label htmlFor="otp">Verification Code</label>
+                  <input 
+                    type="text" 
+                    className="form-control"
+                    id="otp"
+                    name="otp" 
+                    value={formData.otp} 
+                    onChange={onChange} 
+                    placeholder="Enter 6-digit code from email" 
+                    required 
+                  />
+                  <small className="form-text text-muted">
+                    Check your email for the verification code
+                  </small>
+                </div>
+                
+                {!otpVerified ? (
+                  <button 
+                    type="button" 
+                    onClick={verifyOTP} 
+                    className="auth-button verify-button"
+                    disabled={isVerifyingOtp}
+                  >
+                    {isVerifyingOtp ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Verifying...
+                      </>
+                    ) : (
+                      "Verify Code"
+                    )}
+                  </button>
+                ) : (
+                  <div className="verification-success">
+                    <i className="bi bi-check-circle-fill text-success me-2"></i>
+                    <span>Email verified successfully</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
           
           <button 
             type="submit" 
-            className="auth-button" 
+            className="auth-button submit-button" 
             disabled={isLoading || !otpSent || !formData.otp || !otpVerified}
           >
-            {isLoading ? "Signing Up as Seller..." : "Sign Up"}
+            {isLoading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Creating Your Seller Account...
+              </>
+            ) : (
+              "Complete Registration"
+            )}
           </button>
         </form>
         
