@@ -4,7 +4,7 @@ const Product = require("../models/productModels");
 
 // Get User Cart
 const getCart = asyncHandler(async (req, res) => {
-    const cart = await Cart.findOne({ user: req.user._id }).populate("items.product", "title price stock");
+    const cart = await Cart.findOne({ user: req.user._id }).populate("items.product", "title price stock images category description tags");
     if (!cart) {
         return res.status(200).json({ items: [] }); // Empty cart
     }
