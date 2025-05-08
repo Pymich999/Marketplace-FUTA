@@ -21,6 +21,7 @@ app.use('/api/admin', require('./routes/Adminroutes'));
 app.use('/api/products', require('./routes/ProductRoutes'))
 app.use('/api/order', require('./routes/orderRoutes'))
 app.use('/api/cart', require('./routes/cartRoutes'))
+app.use('/api/chats', require('./routes/chatRoutes'));
 
 app.use(errorHandler);
 

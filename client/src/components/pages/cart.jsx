@@ -1,15 +1,23 @@
 import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { getCart, updateCart, removeFromCart, reset } from '../../features/cart/cartSlice';
-import { FaArrowRight, FaShoppingBag } from 'react-icons/fa';
+import { FaArrowRight, FaShoppingBag, FaCheckCircle, FaBell } from 'react-icons/fa';
 
 const Cart = () => {
   const dispatch = useDispatch();
+  const user = JSON.parse(localStorage.getItem('user'));
+  const token = user?.token;
   const navigate = useNavigate();
   const { items, isLoading, isSuccess, isError, message } = useSelector(state => state.cart);
   const [operationInProgress, setOperationInProgress] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [imageErrors, setImageErrors] = useState({});
+  
+  // Order progress states
+  const [orderProgress, setOrderProgress] = useState('idle'); // idle, notifying, completed
+  const [notifiedSellers, setNotifiedSellers] = useState([]);
 
   // Load cart data on component mount
   useEffect(() => {
@@ -102,19 +110,19 @@ const Cart = () => {
   // Handle redirect to product detail view - improved version
   const handleViewProductDetail = (product) => {
     if (!product || !product._id || !product.category) {
-    console.error("Incomplete product data:", product);
-    return;
-  }
+      console.error("Incomplete product data:", product);
+      return;
+    }
     
     navigate('/', { 
-    state: { 
-      selectedProduct: {
-        ...product,
-        category: product.category || '' // Ensure category exists
-      },
-      openProductDetail: true
-    }
-  });
+      state: { 
+        selectedProduct: {
+          ...product,
+          category: product.category || '' // Ensure category exists
+        },
+        openProductDetail: true
+      }
+    });
   };
 
   const handleImageError = (productId) => {
@@ -130,6 +138,67 @@ const Cart = () => {
     return `₦${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const handleCheckout = async () => {
+    setBusy(true);
+    setOrderProgress('notifying');
+
+    // Filter out any entries with a missing product
+    const validItems = items.filter(i => i.product && (i.product._id || i.product.id));
+    console.log(user)
+    if (validItems.length === 0) {
+      alert("Your cart is empty or contains invalid items.");
+      setBusy(false);
+      setOrderProgress('idle');
+      return;
+    }
+
+    // Build your payload
+    const payload = {
+      cartItems: validItems.map(i => ({
+        productId: i.product._id || i.product.id,
+        quantity:  i.quantity
+      })),
+      buyerId: user._id || user.id
+    };
+
+    try {
+      if (!token) {
+        console.error("Token not found.");
+        return;
+      }
+
+      const res = await axios.post(
+        "http://localhost:3000/api/chats/checkout",
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Save notified sellers for display
+      setNotifiedSellers(res.data.sellers);
+      
+      // Show completion state after 2 seconds
+      setTimeout(() => {
+        setOrderProgress('completed');
+      }, 2000);
+      
+      // Clear cart after order is completed (optional)
+      // You might want to add a dedicated function to clear the cart in your Redux slice
+      
+      // Redirect to chats after 5 seconds
+      setTimeout(() => {
+        // navigate("/chats");
+        // Or you can redirect to a dedicated order confirmation page
+      }, 5000);
+      
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Failed to notify sellers.");
+      setOrderProgress('idle');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // Show loading state during initial load
   if (isLoading && !operationInProgress && (!items || items.length === 0)) {
     return (
@@ -140,8 +209,94 @@ const Cart = () => {
     );
   }
 
+  // Render the order progress slider
+  const renderOrderProgressSlider = () => {
+    if (orderProgress === 'idle') {
+      return null;
+    }
+
+    return (
+      <div className="order-progress-overlay">
+        <div className="order-progress-container">
+          <div className="progress-slider">
+            <div className="progress-bar">
+              <div 
+                className={`progress-fill ${orderProgress === 'completed' ? 'completed' : ''}`}
+                style={{ width: orderProgress === 'notifying' ? '50%' : '100%' }}
+              ></div>
+            </div>
+            
+            <div className="progress-steps">
+              <div className="progress-step active">
+                <div className="step-icon">
+                  <FaBell />
+                </div>
+                <span>Notifying Sellers</span>
+              </div>
+              
+              <div className={`progress-step ${orderProgress === 'completed' ? 'active' : ''}`}>
+                <div className="step-icon">
+                  <FaCheckCircle />
+                </div>
+                <span>Order Placed</span>
+              </div>
+            </div>
+          </div>
+          
+          {orderProgress === 'notifying' && (
+            <div className="progress-message">
+              <h3>Notifying Sellers</h3>
+              <p>Please wait while we notify the sellers about your order...</p>
+              <div className="loading-spinner"></div>
+            </div>
+          )}
+          
+          {orderProgress === 'completed' && (
+            <div className="progress-message success">
+              <h3>Congratulations!</h3>
+              <div className="success-icon">
+                <FaCheckCircle size={48} />
+              </div>
+              <p>Your order has been successfully placed!</p>
+              
+              {notifiedSellers.length > 0 && (
+                <div className="seller-notification">
+                  <p>The following sellers have been notified:</p>
+                  <ul className="seller-list">
+                    {notifiedSellers.map(seller => (
+                      <li key={seller._id || seller.id}>{seller.username}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <button 
+                className="continue-shopping-btn"
+                onClick={() => {
+                  setOrderProgress('idle');
+                  navigate('/');
+                }}
+              >
+                Continue Shopping
+              </button>
+              
+              <button
+                className="view-chats-btn"
+                onClick={() => navigate('/chats')}
+              >
+                View Your Chats
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="cart-container">
+      {renderOrderProgressSlider()}
+      
       <h2 className="cart-title">Your Shopping Cart</h2>
       
       {/* Cart is empty state */}
@@ -266,13 +421,14 @@ const Cart = () => {
             </div>
             <button 
               className="checkout-btn"
-              disabled={operationInProgress}
+              disabled={operationInProgress || orderProgress !== 'idle'}
+              onClick={handleCheckout}
             >
               Proceed to Checkout
             </button>
             <button 
               className="continue-shopping-btn"
-              disabled={operationInProgress}
+              disabled={operationInProgress || orderProgress !== 'idle'}
               onClick={() => navigate('/')}
             >
               Continue Shopping

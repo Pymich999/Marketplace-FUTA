@@ -10,6 +10,8 @@ import HomePage from './components/pages/homepage';
 import AdminDashboard from "./components/pages/adminDashboard";
 import SellerDashboard from "./components/pages/seller-dashboard";
 import Cart from './components/pages/cart';
+import Chatpage from './components/pages/Chatpage'
+import Chatlist from './components/pages/Chatlist'
 
 function App() {
   return (
@@ -32,6 +34,8 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/list" element={<Chatlist />} />
+          <Route path="/chatpage" element={<Chatpage />} />
         </Route>
         
         {/* Routes without Navbar */}
