@@ -1,8 +1,10 @@
+
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { ref, onValue, push, get } from "firebase/database";
 import { database } from "../../firebase";
+import axios from "axios";
 import { ArrowLeft, Send, Image, Smile } from "lucide-react"; // Import icons
 
 const ChatPage = () => {
@@ -13,11 +15,15 @@ const ChatPage = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [otherUserName, setOtherUserName] = useState("");
+  const [otherUser, setOtherUser] = useState({
+    id: "",
+    name: "User"
+  });
+  const [threadDetails, setThreadDetails] = useState(null);
   const messagesEndRef = useRef(null);
   const messageContainerRef = useRef(null);
 
-  // Set up chat listener once we have the user from Redux
+  // Set up chat listener and fetch user details
   useEffect(() => {
     if (!currentUser) {
       setError("You must be logged in to view this chat");
@@ -34,9 +40,72 @@ const ChatPage = () => {
       return;
     }
 
+    // Set up Firebase chat listener
     console.log(`Setting up listener for chat: chats/${threadId}`);
-    
     const chatRef = ref(database, `chats/${threadId}`);
+    
+    // Identify the other user in this thread
+    const otherId = threadId.split("_").find(id => id !== userUid);
+    if (otherId) {
+      setOtherUser(prev => ({ ...prev, id: otherId }));
+      
+      // Fetch other user's details
+      const fetchUserDetails = async () => {
+        try {
+          const response = await axios.get(`/api/users/${otherId}`, {
+            headers: { Authorization: `Bearer ${currentUser.token}` }
+          });
+          
+          const userData = response.data?.user;
+          if (userData) {
+            // Use the appropriate name based on role
+            let displayName = userData.name;
+            
+            if (userData.role === 'seller' || userData.role === 'seller_pending') {
+              displayName = userData.sellerProfile?.studentName || 
+                          userData.sellerProfile?.businessName || 
+                          userData.name;
+            }
+            
+            setOtherUser({
+              id: otherId,
+              name: displayName,
+              role: userData.role
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching user details:", err);
+          // Keep the default ID-based name as fallback
+        }
+      };
+      
+      fetchUserDetails();
+      
+      // Also fetch thread details from Firestore (if available)
+      const fetchThreadDetails = async () => {
+        try {
+          const response = await axios.get(`/api/chats/thread/${threadId}`, {
+            headers: { Authorization: `Bearer ${currentUser.token}` }
+          });
+          
+          if (response.data) {
+            setThreadDetails(response.data);
+            
+            // If thread details include names, use them
+            if (response.data.buyerId === currentUser._id && response.data.sellerName) {
+              setOtherUser(prev => ({ ...prev, name: response.data.sellerName }));
+            } else if (response.data.sellerId === currentUser._id && response.data.buyerName) {
+              setOtherUser(prev => ({ ...prev, name: response.data.buyerName }));
+            }
+          }
+        } catch (err) {
+          console.warn("Could not fetch thread details:", err);
+          // Non-critical error, continue without thread details
+        }
+      };
+      
+      fetchThreadDetails();
+    }
     
     // Try to fetch data first to validate access
     get(chatRef)
@@ -69,17 +138,6 @@ const ChatPage = () => {
         }
         setLoading(false);
       });
-
-    // Set up other user's name
-    try {
-      const otherId = threadId.split("_").find(id => id !== userUid);
-      if (otherId) {
-        setOtherUserName(`User ${otherId.substring(0, 5)}...`);
-      }
-    } catch (err) {
-      console.error("Error processing user ID:", err);
-      setOtherUserName("User");
-    }
     
   }, [threadId, currentUser]);
 
@@ -130,6 +188,15 @@ const ChatPage = () => {
       sendMsg();
     }
   };
+  
+  // Get details to display about the thread
+  const getThreadTitle = () => {
+    // First try to use thread details if available
+    if (threadDetails?.productTitle) {
+      return `${threadDetails.productTitle} (${threadDetails.quantity}×)`;
+    }
+    return null;
+  };
 
   if (loading) {
     return (
@@ -163,10 +230,23 @@ const ChatPage = () => {
           <ArrowLeft size={20} />
         </button>
         <div className="user-info">
-          <h2>{otherUserName || "User"}</h2>
+          <h2>{otherUser.name}</h2>
           <span className="status-indicator">Active now</span>
         </div>
       </div>
+      
+      {threadDetails && (
+        <div className="chat-subheader">
+          <div className="product-info">
+            {getThreadTitle() && (
+              <div className="product-title">{getThreadTitle()}</div>
+            )}
+            {threadDetails.price && (
+              <div className="product-price">${threadDetails.price}</div>
+            )}
+          </div>
+        </div>
+      )}
       
       <div className="message-container" ref={messageContainerRef}>
         <div className="message-list">
@@ -189,7 +269,7 @@ const ChatPage = () => {
                   {!isMine && showAvatar && (
                     <div className="avatar-container">
                       <div className="avatar">
-                        {otherUserName ? otherUserName[0] : "U"}
+                        {otherUser.name ? otherUser.name[0] : "U"}
                       </div>
                     </div>
                   )}

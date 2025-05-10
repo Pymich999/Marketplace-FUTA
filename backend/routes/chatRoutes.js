@@ -12,6 +12,6 @@ router.post("/checkout", protect, checkoutChat);
 router.get("/",        protect, getChatsForUser);
 router.get("/:threadId", protect, getChatThread);
 // New route for fetching thread details from Firestore
-router.get('/:threadId/details', protect, getChatThreadDetails);
+router.get('/thread/:threadId', protect, getChatThreadDetails)
 
 module.exports = router;

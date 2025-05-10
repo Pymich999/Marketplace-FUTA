@@ -6,6 +6,8 @@ const OTP = require('../models/OtpModel');
 const SellerProfile = require('../models/Sellerprofile');
 //const { generateJwtToken } = require('../utils/generateToken');
 const { generateOTP, sendOTPEmail } = require('../utils/otpUtils');
+const mongoose = require('mongoose');
+
 
 /**
  * Request OTP for email verification
@@ -228,7 +230,53 @@ const loginUser = asyncHandler(async (req, res) => {
     }
 });
 
+const getUserById = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    // Validate that userId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, message: 'Invalid user ID format' });
+    }
+    
+    // Find user by ID
+    const user = await User.findById(userId).select('name email role');
+    
+    // If user is not found
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // If user is a seller, get additional seller profile information
+    let sellerData = null;
+    if (user.role === 'seller' || user.role === 'seller_pending') {
+      const sellerProfile = await SellerProfile.findOne({ userId: user._id });
+      if (sellerProfile) {
+        sellerData = {
+          businessName: sellerProfile.businessName,
+          studentName: sellerProfile.studentName
+        };
+      }
+    }
+    
+    // Return user data
+    res.status(200).json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        sellerProfile: sellerData
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to fetch user information' });
+  }
+});
 
 const generateJwtToken = id => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '5d' });
 
-module.exports = { registerBuyer, registerSeller, loginUser, requestEmailOTP};
+module.exports = { registerBuyer, registerSeller, loginUser,getUserById, requestEmailOTP};

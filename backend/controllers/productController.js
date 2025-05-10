@@ -1,5 +1,5 @@
 const { set } = require('mongoose');
-const product = require('../models/productModels');
+const Product = require('../models/productModels'); // Changed variable name to avoid conflict
 const asyncHandler = require('express-async-handler');
 
 const generateTagfromtext = (text) => {
@@ -26,7 +26,7 @@ const getSellerProducts = asyncHandler(async (req, res) => {
     const sellerId = req.user._id;
     
     // Find all products where the seller field matches the current user's ID
-    const products = await product.find({ seller: sellerId });
+    const products = await Product.find({ seller: sellerId });
     
     // Return the products
     res.status(200).json(products);
@@ -79,7 +79,7 @@ const CreateProduct = asyncHandler(async (req, res) => {
             autoTags = mergeTags(titleTags, descriptionTags, categoryTags);
         }
 
-        const newProduct = product.create({
+        const newProduct = await Product.create({
             title,
             description,
             price,
@@ -92,7 +92,7 @@ const CreateProduct = asyncHandler(async (req, res) => {
 
         if (newProduct) {
             res.status(201).json({
-                title: product.title,
+                title: newProduct.title, // Fixed: was using product.title instead of newProduct.title
                 description: newProduct.description,
                 price: newProduct.price,
                 category: newProduct.category,
@@ -110,7 +110,7 @@ const CreateProduct = asyncHandler(async (req, res) => {
 
 const getProducts = async (req, res) => {
     try {
-        const products = await product.find({}).populate('seller');
+        const products = await Product.find({}).populate('seller');
         res.status(200).json(products);
     } catch (error) {
         console.error("Error in getProducts:", error);
@@ -123,16 +123,16 @@ const updateProduct = asyncHandler(async (req, res) => {
     try {
         const productId = req.params.id;
 
-        const product = await product.findById(productId);
-        if (!product) {
+        const foundProduct = await Product.findById(productId); // Changed variable name to avoid conflict
+        if (!foundProduct) {
             return res.status(404).json({ message: "Product Not Found" });
         }
 
-        if (product.seller.toString() !== req.user.id) {
+        if (foundProduct.seller.toString() !== req.user.id) {
             return res.status(403).json({ message: "You are not authorized to edit this product" });
         }
 
-        const updatedProduct = await product.findByIdAndUpdate(productId, req.body, { new: true });
+        const updatedProduct = await Product.findByIdAndUpdate(productId, req.body, { new: true });
         res.status(201).json(updatedProduct);
     } catch (error) {
         console.error("Error in updating: ", error);
@@ -145,17 +145,17 @@ const deleteProduct = asyncHandler(async (req, res) => {
     try {
         const productId = req.params.id;
 
-        const Product =await product.findById(productId);
+        const foundProduct = await Product.findById(productId); // Changed variable name
 
-        if (!Product) {
+        if (!foundProduct) {
             return res.status(404).json({ message: "Product not found" });
         }
 
-        if (Product.seller.toString() !== req.user.id) {
+        if (foundProduct.seller.toString() !== req.user.id) {
             return res.status(200).json({ message: "You are not authorized to edit this product" });
         }
 
-        await product.findByIdAndDelete(productId);
+        await Product.findByIdAndDelete(productId);
         res.status(200).json({ message: "Deleted succesfully" });
     } catch (error) {
         console.error("Error in product deletion", error);
@@ -167,11 +167,11 @@ const deleteProduct = asyncHandler(async (req, res) => {
 const getProductById = async (req, res) => {
     try {
         const productId = req.params.id;
-        const product = await Product.findById(productId).populate('seller', 'name email');
-        if (!product) {
+        const foundProduct = await Product.findById(productId).populate('seller', 'name email');
+        if (!foundProduct) {
             return res.status(404).json({ message: 'Product not found' });
         }
-        res.status(200).json(product);
+        res.status(200).json(foundProduct);
     } catch (error) {
         console.error("Error in getProductById:", error);
         res.status(500).json({ message: 'Server error', error });

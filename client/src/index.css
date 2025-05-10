@@ -949,6 +949,211 @@ label {
   background-color: #f5f7fa;
 }
 
+/* Selection Controls - Modernized */
+.selection-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+  border: 1px solid #f0f0f0;
+}
+
+.selection-controls:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.select-all-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.select-all-container label {
+  font-weight: 500;
+  color: #333;
+  transition: color 0.2s ease;
+}
+
+.select-all-container label:hover {
+  color: #0066cc;
+}
+
+.selection-info {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  font-size: 14px;
+  color: #555;
+}
+
+.selected-subtotal {
+  font-weight: 600;
+  color: #0066cc;
+  padding: 6px 12px;
+  background-color: rgba(0, 102, 204, 0.08);
+  border-radius: 20px;
+  transition: all 0.2s ease;
+}
+
+.selected-subtotal:hover {
+  background-color: rgba(0, 102, 204, 0.12);
+}
+
+/* Cart Items Header */
+.cart-items-header {
+  display: grid;
+  grid-template-columns: 40px 3fr 1fr 1fr 1fr 40px;
+  padding: 14px 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #eaeaea;
+  font-weight: 600;
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.header-product {
+  text-align: left;
+  padding-left: 20px;
+}
+
+/* New selector styles */
+.cart-item {
+  position: relative;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.cart-item.selected {
+  background-color: rgba(0, 102, 204, 0.05);
+  border-left: 3px solid #0066cc;
+  transform: translateX(2px);
+}
+
+.item-select {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.item-select input[type="checkbox"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background-color: white;
+}
+
+.item-select input[type="checkbox"]:hover {
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.item-select input[type="checkbox"]:checked {
+  background-color: #0066cc;
+  border-color: #0066cc;
+}
+
+.item-select input[type="checkbox"]:checked::before {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 12px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  top: 2px;
+  left: 7px;
+  transform: rotate(45deg);
+  animation: checkmark 0.2s ease-in-out;
+}
+
+@keyframes checkmark {
+  0% {
+    opacity: 0;
+    transform: rotate(45deg) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(45deg) scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(45deg) scale(1);
+  }
+}
+
+.checkout-btn {
+  transition: all 0.3s ease;
+  transform-origin: center;
+}
+
+.checkout-btn:hover:not(.disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.2);
+}
+
+.checkout-btn.disabled {
+  background-color: #e0e0e0;
+  color: #999;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Select all checkbox - same styling as item checkbox */
+.select-all-container input[type="checkbox"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background-color: white;
+}
+
+.select-all-container input[type="checkbox"]:hover {
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.select-all-container input[type="checkbox"]:checked {
+  background-color: #0066cc;
+  border-color: #0066cc;
+}
+
+.select-all-container input[type="checkbox"]:checked::before {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 12px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  top: 2px;
+  left: 7px;
+  transform: rotate(45deg);
+  animation: checkmark 0.2s ease-in-out;
+}
+
 /* ===== PRODUCT DETAIL PAGE ===== */
 .product-detail-container {
   background-color: var(--background);

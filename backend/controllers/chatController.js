@@ -16,10 +16,14 @@ const checkoutAttemptSchema = new mongoose.Schema({
     productId: String,
     quantity: Number
   }],
+  attemptId: {
+    type: String,
+    unique: true
+  },
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 3600
+    expires: 300 // 5 minutes instead of 1 hour
   }
 });
 const CheckoutAttempt = mongoose.models.CheckoutAttempt ||
@@ -29,32 +33,55 @@ exports.checkoutChat = asyncHandler(async (req, res) => {
   console.log("🔔 checkoutChat called with body:", JSON.stringify(req.body));
 
   try {
-    const { cartItems, buyerId } = req.body;
+    const { cartItems, buyerId, attemptId } = req.body;
 
     if (!Array.isArray(cartItems) || cartItems.length === 0 || !buyerId) {
       return res.status(400).json({ success: false, message: 'Invalid input' });
     }
 
+    // Check for recent duplicate attempt using the attemptId
+    if (attemptId) {
+      const existingAttempt = await CheckoutAttempt.findOne({ attemptId });
+      if (existingAttempt) {
+        return res.status(429).json({ 
+          success: false, 
+          message: 'Duplicate request detected' 
+        });
+      }
+    }
+
     const buyer = await User.findById(buyerId);
     if (!buyer) return res.status(404).json({ success: false, message: 'Buyer not found' });
 
-    const hourAgo = new Date(Date.now() - 3600000);
-    const count = await CheckoutAttempt.countDocuments({ buyerId, createdAt: { $gt: hourAgo } });
-    if (count > 10) {
-      return res.status(429).json({ success: false, message: 'Too many attempts' });
+    // More aggressive rate limiting (10 attempts per 5 minutes)
+    const fiveMinutesAgo = new Date(Date.now() - 300000);
+    const count = await CheckoutAttempt.countDocuments({ 
+      buyerId, 
+      createdAt: { $gt: fiveMinutesAgo } 
+    });
+    
+    if (count >= 10) {
+      return res.status(429).json({ 
+        success: false, 
+        message: 'Too many attempts. Please wait a few minutes.' 
+      });
     }
 
-    await CheckoutAttempt.create({ buyerId, cartItems });
+    // Create attempt record with unique ID
+    const newAttemptId = attemptId || crypto.randomBytes(16).toString('hex');
+    await CheckoutAttempt.create({ 
+      buyerId, 
+      cartItems, 
+      attemptId: newAttemptId 
+    });
 
     const notifiedSellers = [];
     const failedItems = [];
     const processedItems = new Set();
 
-    const session = await mongoose.startSession();
-    await session.startTransaction();
-
-    try {
-      await Promise.all(cartItems.map(async ({ productId, quantity }, idx) => {
+    // Process each item
+    await Promise.all(cartItems.map(async ({ productId, quantity }) => {
+      try {
         const itemKey = `${productId}_${quantity}`;
         if (processedItems.has(itemKey)) return;
         processedItems.add(itemKey);
@@ -64,33 +91,46 @@ exports.checkoutChat = asyncHandler(async (req, res) => {
           return;
         }
 
-        const product = await Product.findById(productId)
-          .populate("seller", "name email phone role")
-          .session(session);
+        // Atomic product update
+        const product = await Product.findOneAndUpdate(
+          { 
+            _id: productId,
+            stock: { $gte: quantity }
+          },
+          { $inc: { stock: -quantity } },
+          { 
+            new: true,
+            populate: { path: "seller", select: "name email phone role" }
+          }
+        );
 
         if (!product) {
-          failedItems.push({ productId, reason: "Product not found" });
+          const originalProduct = await Product.findById(productId);
+          if (!originalProduct) {
+            failedItems.push({ productId, reason: "Product not found" });
+          } else {
+            failedItems.push({
+              productId,
+              product: originalProduct.title,
+              reason: `Stock too low (${originalProduct.stock})`
+            });
+          }
           return;
         }
 
         const seller = product.seller;
         if (!seller || seller.role !== "seller") {
-          failedItems.push({ productId, reason: "User is not a seller" });
-          return;
-        }
-
-        if (product.stock <= 0 || product.stock < quantity) {
-          failedItems.push({
-            productId,
-            product: product.title,
-            reason: `Stock too low (${product.stock})`
+          await Product.updateOne(
+            { _id: productId },
+            { $inc: { stock: quantity } }
+          );
+          failedItems.push({ 
+            productId, 
+            product: product.title, 
+            reason: "User is not a seller" 
           });
           return;
         }
-
-        // Fix: Use `stock`, not undefined `quantity` field in product
-        product.stock -= quantity;
-        await product.save({ session });
 
         const sellerProfile = await SellerProfile.findOne({ userId: seller._id });
         const sellerName = sellerProfile?.studentName || seller.name || "Seller";
@@ -98,42 +138,47 @@ exports.checkoutChat = asyncHandler(async (req, res) => {
 
         const totalPrice = (product.price * quantity).toFixed(2);
         const messageText = `Hello ${sellerName}, ${buyerName} wants ${quantity}× ${product.title} for $${totalPrice}.`;
-
         const threadId = [buyerId, seller._id.toString()].sort().join("_");
 
-        // Realtime DB check for duplicate
+        // More flexible duplicate message check (30 second window)
         const snap = await admin.database()
           .ref(`chats/${threadId}`)
           .orderByChild('timestamp')
-          .startAt(Date.now() - 3600000)
+          .startAt(Date.now() - 30000)
           .once("value");
 
-        let isDuplicate = false;
-        snap.forEach(childSnap => {
-          const msg = childSnap.val();
-          if (msg.content === messageText && msg.senderId === buyerId) {
-            isDuplicate = true;
-          }
-        });
+        const isDuplicate = Object.values(snap.val() || {}).some(msg => 
+          msg.senderId === buyerId && 
+          msg.productId === productId &&
+          Date.now() - msg.timestamp < 30000
+        );
 
         if (isDuplicate) {
-          failedItems.push({ productId, reason: "Duplicate checkout attempt" });
+          await Product.updateOne(
+            { _id: productId },
+            { $inc: { stock: quantity } }
+          );
+          failedItems.push({ 
+            productId, 
+            product: product.title, 
+            reason: "Recent duplicate request" 
+          });
           return;
         }
 
-        // ✅ Push to Realtime DB (message stream)
+        // Realtime DB update
         const chatRef = admin.database().ref(`chats/${threadId}`);
         await chatRef.push({
-          senderId:   buyerId,
+          senderId: buyerId,
           receiverId: seller._id.toString(),
-          content:    messageText,
-          timestamp:  Date.now(),
-          type:       'checkout',
-          price:      totalPrice,
+          content: messageText,
+          timestamp: Date.now(),
+          type: 'checkout',
+          price: totalPrice,
           productId
         });
 
-        // ✅ Push summary to Firestore (inbox view)
+        // Firestore update
         await admin.firestore().collection('chatThreads').doc(threadId).set({
           users: [buyerId, seller._id.toString()],
           lastMessage: messageText,
@@ -155,20 +200,20 @@ exports.checkoutChat = asyncHandler(async (req, res) => {
           quantity,
           price: totalPrice
         });
-      }));
-
-      await session.commitTransaction();
-    } catch (err) {
-      await session.abortTransaction();
-      throw err;
-    } finally {
-      session.endSession();
-    }
+      } catch (itemError) {
+        console.error(`Error processing item ${productId}:`, itemError);
+        failedItems.push({ 
+          productId, 
+          reason: `Processing error: ${itemError.message || 'Unknown error'}` 
+        });
+      }
+    }));
 
     res.status(200).json({
       success: true,
       sellers: notifiedSellers,
-      failedItems: failedItems.length ? failedItems : undefined
+      failedItems: failedItems.length ? failedItems : undefined,
+      attemptId: newAttemptId // Return the attempt ID to client
     });
 
   } catch (error) {

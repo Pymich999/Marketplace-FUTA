@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { getCart, updateCart, removeFromCart, reset } from '../../features/cart/cartSlice';
 import { FaArrowRight, FaShoppingBag, FaCheckCircle, FaBell } from 'react-icons/fa';
+import _ from 'lodash';
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -14,12 +15,16 @@ const Cart = () => {
   const [operationInProgress, setOperationInProgress] = useState(false);
   const [busy, setBusy] = useState(false);
   const [imageErrors, setImageErrors] = useState({});
+  const [checkoutAttemptId, setCheckoutAttemptId] = useState(null);
   
-  // Order progress states
-  const [orderProgress, setOrderProgress] = useState('idle'); // idle, notifying, completed
+  const [orderProgress, setOrderProgress] = useState('idle');
   const [notifiedSellers, setNotifiedSellers] = useState([]);
+  const [failedItems, setFailedItems] = useState([]);
+  
+  // New state for selected items
+  const [selectedItems, setSelectedItems] = useState({});
+  const [selectAll, setSelectAll] = useState(false);
 
-  // Load cart data on component mount
   useEffect(() => {
     refreshCart();
     return () => {
@@ -27,21 +32,27 @@ const Cart = () => {
     };
   }, [dispatch]);
 
-  // Handle error notifications
   useEffect(() => {
     if (isError) {
       console.error("Cart error:", message);
     }
   }, [isError, message]);
 
-  // Debug cart items
   useEffect(() => {
     if (items && items.length > 0) {
-      console.log("Cart items loaded:", items);
+      console.log("Cart items count:", items.length);
+      
+      // Initialize selected items state
+      const initialSelections = {};
+      items.forEach(item => {
+        if (item && item.product && item.product._id) {
+          initialSelections[item.product._id] = false;
+        }
+      });
+      setSelectedItems(initialSelections);
     }
   }, [items]);
 
-  // Utility function to refresh cart data
   const refreshCart = () => {
     dispatch(getCart())
       .unwrap()
@@ -50,64 +61,87 @@ const Cart = () => {
       });
   };
 
-  const handleQuantityChange = async (productId, quantity) => {
+  // Handle individual item selection
+  const handleSelectItem = (productId) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [productId]: !prev[productId]
+    }));
+  };
+
+  // Handle select all items
+  const handleSelectAll = () => {
+    const newSelectAll = !selectAll;
+    setSelectAll(newSelectAll);
+    
+    const newSelections = {};
+    items.forEach(item => {
+      if (item && item.product && item.product._id) {
+        newSelections[item.product._id] = newSelectAll;
+      }
+    });
+    setSelectedItems(newSelections);
+  };
+
+  // Debounced quantity change handler
+  const handleQuantityChange = _.debounce(async (productId, quantity) => {
     if (quantity < 1 || operationInProgress) return;
     
     try {
       setOperationInProgress(true);
-      
       await dispatch(updateCart({ productId, quantity })).unwrap();
-      
-      // Add a successful refresh here to ensure consistency
       await dispatch(getCart()).unwrap();
-      
     } catch (error) {
       console.error('Failed to update quantity:', error);
-      
-      // Add a small delay before refreshing to prevent race conditions
-      setTimeout(() => {
-        refreshCart();
-      }, 300);
+      setTimeout(() => refreshCart(), 300);
     } finally {
       setOperationInProgress(false);
     }
-  };
+  }, 300);
 
   const handleRemoveItem = async (productId) => {
     if (operationInProgress) return;
     
     try {
       setOperationInProgress(true);
-      
       await dispatch(removeFromCart(productId)).unwrap();
-      
-      // Add a successful refresh here
       await dispatch(getCart()).unwrap();
       
+      // Remove from selected items
+      setSelectedItems(prev => {
+        const updated = {...prev};
+        delete updated[productId];
+        return updated;
+      });
     } catch (error) {
       console.error('Failed to remove item:', error);
-      
-      // Add a small delay before refreshing
-      setTimeout(() => {
-        refreshCart();
-      }, 300);
+      setTimeout(() => refreshCart(), 300);
     } finally {
       setOperationInProgress(false);
     }
   };
 
-  const calculateSubtotal = () => {
+  const calculateSubtotal = (selectedOnly = false) => {
     if (!items || items.length === 0) return '0.00';
-    
     return items.reduce((total, item) => {
       if (!item || !item.product || typeof item.product.price !== 'number') {
         return total;
       }
+      
+      // Only include selected items if selectedOnly is true
+      if (selectedOnly && (!selectedItems[item.product._id])) {
+        return total;
+      }
+      
       return total + (item.product.price * item.quantity);
     }, 0).toFixed(2);
   };
 
-  // Handle redirect to product detail view - improved version
+  // Function to get selected items count
+  const getSelectedItemsCount = () => {
+    return Object.values(selectedItems).filter(Boolean).length;
+  };
+
   const handleViewProductDetail = (product) => {
     if (!product || !product._id || !product.category) {
       console.error("Incomplete product data:", product);
@@ -118,7 +152,7 @@ const Cart = () => {
       state: { 
         selectedProduct: {
           ...product,
-          category: product.category || '' // Ensure category exists
+          category: product.category || ''
         },
         openProductDetail: true
       }
@@ -132,72 +166,106 @@ const Cart = () => {
     }));
   };
 
-  // Format currency to include the Naira symbol
   const formatPrice = (price) => {
     if (typeof price !== 'number') return '₦0.00';
     return `₦${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const handleCheckout = async () => {
+  // Debounced checkout handler with attempt tracking - modified to handle selected items
+  const handleCheckout = _.debounce(async () => {
+    if (!token) {
+      alert("You must be logged in to checkout");
+      return;
+    }
+
+    if (busy || orderProgress !== 'idle') return;
+    
+    const selectedCount = getSelectedItemsCount();
+    if (selectedCount === 0) {
+      alert("Please select at least one item to checkout");
+      return;
+    }
+    
     setBusy(true);
     setOrderProgress('notifying');
+    setNotifiedSellers([]);
+    setFailedItems([]);
 
-    // Filter out any entries with a missing product
-    const validItems = items.filter(i => i.product && (i.product._id || i.product.id));
-    console.log(user)
-    if (validItems.length === 0) {
-      alert("Your cart is empty or contains invalid items.");
+    // Filter valid AND selected items
+    const validSelectedItems = items.filter(i => 
+      i.product && 
+      (i.product._id || i.product.id) && 
+      selectedItems[i.product._id || i.product.id]
+    );
+    
+    if (validSelectedItems.length === 0) {
+      alert("No valid items selected for checkout.");
       setBusy(false);
       setOrderProgress('idle');
       return;
     }
 
-    // Build your payload
+    // Generate a unique attempt ID if we don't have one
+    const attemptId = checkoutAttemptId || crypto.randomUUID();
+    setCheckoutAttemptId(attemptId);
+
     const payload = {
-      cartItems: validItems.map(i => ({
+      cartItems: validSelectedItems.map(i => ({
         productId: i.product._id || i.product.id,
-        quantity:  i.quantity
+        quantity: i.quantity
       })),
-      buyerId: user._id || user.id
+      buyerId: user._id || user.id,
+      attemptId
     };
 
     try {
-      if (!token) {
-        console.error("Token not found.");
-        return;
-      }
-
       const res = await axios.post(
-        "http://localhost:3000/api/chats/checkout",
+        "/api/chats/checkout",
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Save notified sellers for display
-      setNotifiedSellers(res.data.sellers);
-      
-      // Show completion state after 2 seconds
-      setTimeout(() => {
-        setOrderProgress('completed');
-      }, 2000);
-      
-      // Clear cart after order is completed (optional)
-      // You might want to add a dedicated function to clear the cart in your Redux slice
-      
-      // Redirect to chats after 5 seconds
-      setTimeout(() => {
-        // navigate("/chats");
-        // Or you can redirect to a dedicated order confirmation page
-      }, 5000);
-      
+      if (res.data.success) {
+        setNotifiedSellers(res.data.sellers || []);
+        
+        if (res.data.failedItems && res.data.failedItems.length > 0) {
+          setFailedItems(res.data.failedItems);
+        }
+        
+        // Store the successful attempt ID to prevent duplicates
+        if (res.data.attemptId) {
+          setCheckoutAttemptId(res.data.attemptId);
+        }
+
+        // Reset selection for checked out items
+        const newSelections = {...selectedItems};
+        validSelectedItems.forEach(item => {
+          if (item && item.product && item.product._id) {
+            newSelections[item.product._id] = false;
+          }
+        });
+        setSelectedItems(newSelections);
+        setSelectAll(false);
+
+        setTimeout(() => setOrderProgress('completed'), 2000);
+        setTimeout(() => navigate("/chats"), 5000);
+      } else {
+        throw new Error(res.data.message || "Checkout failed");
+      }
     } catch (err) {
       console.error("Checkout error:", err);
-      alert("Failed to notify sellers.");
+      
+      // If it's a duplicate error, reset the attempt ID
+      if (err.response?.status === 429) {
+        setCheckoutAttemptId(null);
+      }
+      
+      alert(err.response?.data?.message || "Failed to notify sellers. Please try again.");
       setOrderProgress('idle');
     } finally {
       setBusy(false);
     }
-  };
+  }, 1000, { leading: true, trailing: false });
 
   // Show loading state during initial load
   if (isLoading && !operationInProgress && (!items || items.length === 0)) {
@@ -263,12 +331,35 @@ const Cart = () => {
                 <div className="seller-notification">
                   <p>The following sellers have been notified:</p>
                   <ul className="seller-list">
-                    {notifiedSellers.map(seller => (
-                      <li key={seller._id || seller.id}>{seller.username}</li>
+                    {notifiedSellers.map((seller, idx) => (
+                      <li key={seller.sellerId || idx}>
+                        {seller.username}: {seller.quantity}× {seller.productTitle} 
+                        ({formatPrice(parseFloat(seller.price))})
+                      </li>
                     ))}
                   </ul>
                 </div>
               )}
+              
+              {failedItems.length > 0 && (
+                <div className="failed-items">
+                  <p className="warning">Some items couldn't be processed:</p>
+                  <ul className="failed-list">
+                    {failedItems.map((item, idx) => (
+                      <li key={idx}>
+                        {item.product || item.productId}: {item.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <button 
+                className="view-chats-btn"
+                onClick={() => navigate('/chats')}
+              >
+                View Your Chats
+              </button>
               
               <button 
                 className="continue-shopping-btn"
@@ -278,13 +369,6 @@ const Cart = () => {
                 }}
               >
                 Continue Shopping
-              </button>
-              
-              <button
-                className="view-chats-btn"
-                onClick={() => navigate('/chats')}
-              >
-                View Your Chats
               </button>
             </div>
           )}
@@ -318,6 +402,41 @@ const Cart = () => {
             </div>
           )}
           
+          {/* Selection controls */}
+          <div className="selection-controls">
+            <div className="select-all-container">
+              <input
+                type="checkbox"
+                id="select-all"
+                checked={selectAll}
+                onChange={handleSelectAll}
+                disabled={operationInProgress}
+              />
+              <label htmlFor="select-all">Select All</label>
+            </div>
+            
+            <div className="selection-info">
+              <span>
+                {getSelectedItemsCount()} of {items.length} items selected
+              </span>
+              {getSelectedItemsCount() > 0 && (
+                <span className="selected-subtotal">
+                  Selected Subtotal: {formatPrice(parseFloat(calculateSubtotal(true)))}
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Table header */}
+          <div className="cart-items-header">
+            <div className="header-select"></div>
+            <div className="header-product">Product</div>
+            <div className="header-price">Price</div>
+            <div className="header-quantity">Quantity</div>
+            <div className="header-subtotal">Subtotal</div>
+            <div className="header-actions"></div>
+          </div>
+          
           <div className="cart-items">
             {items.map((item) => {
               // Skip invalid items
@@ -332,8 +451,19 @@ const Cart = () => {
                                    typeof product.images[0] === 'string' &&
                                    !imageErrors[product._id];
               
+              const isSelected = selectedItems[product._id] || false;
+              
               return (
-                <div key={product._id} className="cart-item">
+                <div key={product._id} className={`cart-item ${isSelected ? 'selected' : ''}`}>
+                  <div className="item-select">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleSelectItem(product._id)}
+                      disabled={operationInProgress}
+                    />
+                  </div>
+                  
                   <div 
                     className="item-image cursor-pointer"
                     onClick={() => handleViewProductDetail(product)}
@@ -408,23 +538,31 @@ const Cart = () => {
           
           <div className="cart-summary">
             <div className="summary-row">
-              <span>Subtotal:</span>
-              <span>{formatPrice(parseFloat(calculateSubtotal()))}</span>
+              <span>Total Items:</span>
+              <span>{items.length}</span>
+            </div>
+            <div className="summary-row">
+              <span>Selected Items:</span>
+              <span>{getSelectedItemsCount()}</span>
+            </div>
+            <div className="summary-row">
+              <span>Selected Subtotal:</span>
+              <span>{formatPrice(parseFloat(calculateSubtotal(true)))}</span>
             </div>
             <div className="summary-row">
               <span>Shipping:</span>
               <span>Calculated at checkout</span>
             </div>
             <div className="summary-row total">
-              <span>Total:</span>
-              <span>{formatPrice(parseFloat(calculateSubtotal()))}</span>
+              <span>Total (Selected Items):</span>
+              <span>{formatPrice(parseFloat(calculateSubtotal(true)))}</span>
             </div>
             <button 
-              className="checkout-btn"
-              disabled={operationInProgress || orderProgress !== 'idle'}
+              className={`checkout-btn ${getSelectedItemsCount() === 0 ? 'disabled' : ''}`}
+              disabled={operationInProgress || orderProgress !== 'idle' || getSelectedItemsCount() === 0}
               onClick={handleCheckout}
             >
-              Proceed to Checkout
+              Checkout Selected Items ({getSelectedItemsCount()})
             </button>
             <button 
               className="continue-shopping-btn"

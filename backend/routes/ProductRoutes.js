@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {CreateProduct, getProducts, updateProduct, deleteProduct, getProductById, getSellerProducts} = require('../controllers/productController')
-const {protect, isSeller} = require('../middleware/authMiddleware')
+const {protect, isSeller, isBuyer} = require('../middleware/authMiddleware')
 const { productLimiter } = require('../middleware/ratelimiter');
 
 //public endpoints routes
