@@ -33,9 +33,7 @@ function App() {
         {/* Routes with Navbar */}
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/list" element={<Chatlist />} />
-          <Route path="/chatpage" element={<Chatpage />} />
+          <Route path="/cart" element={<Cart />} /> 
         </Route>
         
         {/* Routes without Navbar */}
@@ -44,6 +42,13 @@ function App() {
         <Route path="/seller-signup" element={<SellerSignup />} />
         <Route path="/seller-dashboard" element={<SellerDashboard />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        {/* Updated chat routes */}
+        <Route path="/chats" element={<Chatlist />} />
+        <Route path="/chats/:threadId" element={<Chatpage />} />
+          
+          {/* Keep these as fallbacks for any existing links */}
+        <Route path="/list" element={<Chatlist />} />
+        <Route path="/chatpage/:threadId" element={<Chatpage />} /> 
       </Routes>
     </div>
   );

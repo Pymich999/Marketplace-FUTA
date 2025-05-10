@@ -9,7 +9,9 @@ import {
   FaSignInAlt,
   FaStore,
   FaAngleDown,
-  FaTimes
+  FaTimes,
+  FaFacebookMessenger,
+  FaComment,
 } from "react-icons/fa";
 
 const Navbar = () => {
@@ -150,6 +152,12 @@ const Navbar = () => {
               </Link>
             </li>
             <li>
+              <Link to="/list"  title="Chat">
+                <FaComment /> 
+                <span className="nav-text">Orders</span>
+              </Link>
+            </li>
+            <li>
               <Link to="/login" className={isActive("/login")} title="Login">
                 <FaSignInAlt /> 
                 <span className="nav-text">Login</span>
@@ -165,7 +173,7 @@ const Navbar = () => {
               {/* Change to button to trigger modal instead of link */}
               <button 
                 onClick={() => setShowLogoutModal(true)} 
-                className="logout-button" 
+                className="logout-button"
                 title="Logout"
               >
                 <FaSignOutAlt /> 

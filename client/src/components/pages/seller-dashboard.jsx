@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { uploadImage } from '../../utils/imageUpload';
+import {FaComment} from "react-icons/fa";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const SellerDashboard = () => {
   // State for managing different views
   const [activeTab, setActiveTab] = useState('overview');
+  const navigate = useNavigate();
   
   // State for products
   const [products, setProducts] = useState([]);
@@ -68,7 +71,7 @@ const SellerDashboard = () => {
           
           // Only fetch products if user is a verified seller
           if (userData.role !== 'seller_pending') {
-            const productsResponse = await axios.get('http://localhost:3000/api/products/seller');
+            const productsResponse = await axios.get('/api/products/seller');
             setProducts(productsResponse.data);
             calculateStats(productsResponse.data);
           }
@@ -208,7 +211,7 @@ const SellerDashboard = () => {
       let response;
       if (selectedProduct) {
         response = await axios.put(
-          `http://localhost:3000/api/products/${selectedProduct._id}`,
+          `/api/products/${selectedProduct._id}`,
           productData,
           config
         );
@@ -217,7 +220,7 @@ const SellerDashboard = () => {
         ));
       } else {
         response = await axios.post(
-          'http://localhost:3000/api/products',
+          '/api/products',
           productData,
           config
         );
@@ -257,7 +260,7 @@ const SellerDashboard = () => {
   const deleteProduct = async (productId) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
-        await axios.delete(`http://localhost:3000/api/products/${productId}`);
+        await axios.delete(`/api/products/${productId}`);
         setProducts(products.filter(product => product._id !== productId));
         alert('Product deleted successfully');
       } catch (err) {
@@ -376,6 +379,15 @@ const SellerDashboard = () => {
               >
                 Products
               </li>
+              <li>
+              <li
+        className={activeTab === 'orders' ? 'active' : ''}
+        onClick={() => navigate('/list')}
+      >
+        <FaComment/>
+        <span className="nav-text">Orders</span>
+      </li>
+            </li>
               <li 
                 className={activeTab === 'add-product' ? 'active' : ''} 
                 onClick={() => setActiveTab('add-product')}

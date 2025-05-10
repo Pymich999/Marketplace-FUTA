@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   FaShoppingCart,
+  FaComment,
   FaArrowLeft,
   FaStar,
   FaHeart,
@@ -193,6 +194,9 @@ const HomePage = () => {
         <div className="header-actions">
           <Link to="/cart" className="cart-icon">
             <FaShoppingCart />
+          </Link>
+          <Link to="/list" className="cart-icon">
+            <FaComment />
           </Link>
           <button className="become-seller-button" onClick={handleSellerSignup}>
             <FaStore /> Become a Seller

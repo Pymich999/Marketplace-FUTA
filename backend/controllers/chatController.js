@@ -203,3 +203,46 @@ exports.getChatThread = asyncHandler(async (req, res) => {
     .sort((a, b) => a.timestamp - b.timestamp);
   res.json(messages);
 });
+
+exports.getChatThreadDetails = asyncHandler(async (req, res) => {
+  const { threadId } = req.params;
+  const userId = req.user._id.toString();
+  
+  try {
+    // Check if the user is part of this thread
+    if (!threadId.includes(userId)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "You don't have access to this conversation" 
+      });
+    }
+    
+    // Get thread details from Firestore
+    const threadDoc = await admin.firestore().collection('chatThreads').doc(threadId).get();
+    
+    if (!threadDoc.exists) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Conversation not found" 
+      });
+    }
+    
+    const threadData = threadDoc.data();
+    
+    // Make sure user is actually part of this thread
+    if (!threadData.users.includes(userId)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "You don't have access to this conversation" 
+      });
+    }
+    
+    res.status(200).json(threadData);
+  } catch (error) {
+    console.error("Error fetching thread details:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || "Failed to load conversation details" 
+    });
+  }
+});

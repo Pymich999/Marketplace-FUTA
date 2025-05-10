@@ -4,11 +4,14 @@ const {
   checkoutChat,
   getChatsForUser,
   getChatThread,
+  getChatThreadDetails,
 } = require("../controllers/chatController");
 const { protect } = require("../middleware/authMiddleware");
 
 router.post("/checkout", protect, checkoutChat);
 router.get("/",        protect, getChatsForUser);
 router.get("/:threadId", protect, getChatThread);
+// New route for fetching thread details from Firestore
+router.get('/:threadId/details', protect, getChatThreadDetails);
 
 module.exports = router;
