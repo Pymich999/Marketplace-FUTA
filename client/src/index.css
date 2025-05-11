@@ -2176,6 +2176,204 @@ textarea.form-control {
   background-color: #ff1a1a;
 }
 
+/* Category Bubbles Style - Similar to Spotify's Artist Selection */
+.category-bubbles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.category-bubble {
+  background-color: #f0f0f0;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.category-bubble:hover {
+  background-color: #e0e0e0;
+}
+
+.category-bubble.selected {
+  background-color: #1db954; /* Spotify green color */
+  color: white;
+  border-color: #1db954;
+  font-weight: 500;
+}
+
+/* Form validation visual feedback */
+input:invalid, textarea:invalid {
+  border-color: #ff6b6b;
+  background-color: #fff0f0;
+}
+
+.form-group label {
+  margin-bottom: 8px;
+  display: block;
+  font-weight: 500;
+}
+
+/* Make the form group for categories have some spacing */
+.form-group:has(.category-bubbles) {
+  margin-bottom: 24px;
+}
+
+/* Fix for the Orders tab - making it consistent with other tabs */
+.dashboard-nav ul li {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+
+.dashboard-nav ul li .nav-text {
+  margin-left: 8px;
+}
+
+.dashboard-nav ul li FaComment {
+  margin-right: 8px;
+}
+
+/* Remove any nested li that might cause the double layer issue */
+.dashboard-nav ul li li {
+  padding: 0;
+  margin: 0;
+  display: block;
+}
+
+/* Notification System Styles */
+.notification-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 350px;
+}
+
+.notification {
+  padding: 15px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  animation: slideIn 0.3s ease-out forwards;
+  position: relative;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.notification.exit {
+  animation: slideOut 0.3s ease-in forwards;
+}
+
+.notification-success {
+  background-color: #4caf50;
+  border-left: 5px solid #388e3c;
+}
+
+.notification-error {
+  background-color: #f44336;
+  border-left: 5px solid #d32f2f;
+}
+
+.notification-info {
+  background-color: #2196f3;
+  border-left: 5px solid #1976d2;
+}
+
+.notification-warning {
+  background-color: #ff9800;
+  border-left: 5px solid #f57c00;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  margin-left: 10px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.notification-close:hover {
+  opacity: 1;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Progress bar styles for upload progress */
+.upload-progress {
+  margin: 15px 0;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+}
+
+.upload-progress progress {
+  width: 100%;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  border: none;
+}
+
+.upload-progress progress::-webkit-progress-bar {
+  background-color: #e0e0e0;
+  border-radius: 5px;
+}
+
+.upload-progress progress::-webkit-progress-value {
+  background-color: #4caf50;
+  border-radius: 5px;
+}
+
+.upload-progress progress::-moz-progress-bar {
+  background-color: #4caf50;
+  border-radius: 5px;
+}
+
+.upload-progress span {
+  display: block;
+  text-align: center;
+  margin-top: 5px;
+  font-size: 14px;
+  font-weight: 500;
+}
 /* Style for logout button in navbar */
 .logout-button {
   all: unset;
@@ -3809,5 +4007,144 @@ textarea.form-control {
   
   .chat-thread-link {
     padding: var(--spacing-md);
+  }
+}
+
+.category-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin: 16px auto;
+  max-width: 1200px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  transition: all 0.3s ease;
+}
+
+.category-navigation button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  background-color: white;
+  color: #333;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.category-navigation button:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-2px);
+}
+
+.category-navigation button.active {
+  background-color: #4a90e2;
+  color: white;
+}
+
+.category-navigation button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f0f0f0;
+}
+
+.filter-selected {
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+/* Mobile Responsive Filter */
+.mobile-filter-toggle {
+  display: none;
+  width: 100%;
+  padding: 10px;
+  background-color: #f8f9fa;
+  position: sticky;
+  top: 0;
+  z-index: 101;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-filter-toggle button {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  background-color: #4a90e2;
+  color: white;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+/* Media queries for responsive design */
+@media (max-width: 768px) {
+  .category-navigation {
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    background-color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 80%;
+    height: 100vh;
+    max-width: 300px;
+    box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+  }
+
+  .category-navigation.open {
+    transform: translateX(0);
+  }
+
+  .category-navigation button {
+    width: 100%;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-radius: 4px;
+    text-align: left;
+  }
+
+  .mobile-filter-toggle {
+    display: block;
+  }
+}
+
+/* Overlay when filter is open on mobile */
+.filter-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+@media (max-width: 768px) {
+  .category-navigation.open + .filter-overlay {
+    display: block;
   }
 }

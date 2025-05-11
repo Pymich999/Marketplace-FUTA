@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { format } from "date-fns";
@@ -13,175 +13,154 @@ const ChatList = () => {
   
   const user = JSON.parse(localStorage.getItem('user'));
   
-  useEffect(() => {
-    const fetchThreads = async () => {
-      try {
-        setLoading(true);
-        const token = user?.token;
-        
-        if (!token) {
-          setError("No authentication token found. Please log in.");
-          setLoading(false);
-          return;
-        }
-        
-        console.log("Fetching chat threads...");
-        
-        // Get all chat threads
-        const res = await axios.get("/api/chats", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        console.log("API response:", res.data);
-        
-        // Check if res.data is an array
-        let threadsList = [];
-        if (Array.isArray(res.data)) {
-          threadsList = res.data;
-        } else if (res.data && typeof res.data === 'object' && res.data.threads) {
-          // If the API returns an object with a threads property
-          threadsList = res.data.threads;
-        } else {
-          console.error("Unexpected API response format:", res.data);
-          setError("Received unexpected data format from server");
-          setLoading(false);
-          return;
-        }
-        
-        console.log("Original threads:", threadsList);
-        
-        // Fetch thread details for each thread including timestamps
-        const threadsWithDetails = await Promise.all(threadsList.map(async (thread) => {
-          try {
-            // Fetch detailed thread information from Firestore (includes lastTimestamp)
-            const threadDetailsResponse = await axios.get(`/api/chats/thread/${thread.threadId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            const threadDetails = threadDetailsResponse.data;
-            
-            // Merge thread details with thread info
-            return {
-              ...thread,
-              ...threadDetails,
-              timestamp: threadDetails?.lastTimestamp || Date.now(), // Use lastTimestamp or current time
-              lastMessage: threadDetails?.lastMessage || ""
-            };
-          } catch (err) {
-            console.warn(`Could not fetch details for thread ${thread.threadId}:`, err);
-            // Return thread with default timestamp
-            return {
-              ...thread,
-              timestamp: Date.now() - (Math.random() * 1000000), // Add some randomness to avoid collision
-              lastMessage: "Conversation started"
-            };
-          }
-        }));
-        
-        console.log("Threads with details:", threadsWithDetails);
-        
-        // Sort threads by timestamp (newest first)
-        const sortedThreads = [...threadsWithDetails].sort((a, b) => {
-          // Ensure both have timestamps, default to 0 if missing
-          const timeA = a.timestamp || 0;
-          const timeB = b.timestamp || 0;
-          return timeB - timeA; // Newest first
-        });
-        
-        console.log("Sorted threads:", sortedThreads);
-        
-        setThreads(sortedThreads);
-        
-        // Get unique user IDs from threads
-        const userIds = new Set();
-        threadsWithDetails.forEach(thread => {
-          userIds.add(thread.otherUserId);
-          // Also add from thread details if available
-          if (thread.buyerId && thread.buyerId !== user._id) userIds.add(thread.buyerId);
-          if (thread.sellerId && thread.sellerId !== user._id) userIds.add(thread.sellerId);
-        });
-        
-        console.log("Fetching user info for:", Array.from(userIds));
-        
-        // Fetch user info for each unique user ID
-        const names = {};
-        await Promise.all(Array.from(userIds).map(async (userId) => {
-          if (!userId) return; // Skip undefined or null IDs
-          
-          try {
-            const userResponse = await axios.get(`/api/users/${userId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            const userData = userResponse.data?.user;
-            if (userData) {
-              // For sellers, prefer student name or business name; otherwise use regular name
-              if (userData.role === 'seller' || userData.role === 'seller_pending') {
-                const sellerName = userData.sellerProfile?.studentName || 
-                                  userData.sellerProfile?.businessName || 
-                                  userData.name;
-                names[userId] = sellerName;
-              } else {
-                names[userId] = userData.name;
-              }
-              console.log(`User ${userId} name:`, names[userId]);
-            } else {
-              // Fallback to user ID if we couldn't get the name
-              names[userId] = `User ${userId.substring(0, 5)}...`;
-              console.log(`Could not get user data for ${userId}`);
-            }
-          } catch (err) {
-            console.warn(`Couldn't fetch user info for ${userId}:`, err);
-            names[userId] = `User ${userId.substring(0, 5)}...`;
-          }
-        }));
-        
-        setUsernames(names);
-      } catch (err) {
-        console.error("Error fetching threads:", err);
-        setError(err.message || "Failed to fetch conversations");
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchThreads();
-  }, []);
+  // Create axios instance with token for reuse
+  const axiosWithAuth = useMemo(() => {
+    const token = user?.token;
+    return axios.create({
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  }, [user?.token]);
   
-  // Apply filters (search and unread)
-  const filteredThreads = threads.filter(thread => {
-    const otherId = thread.otherUserId;
-    // If user is buyer, show seller name and vice versa
-    const relevantUserId = user._id === thread.buyerId ? thread.sellerId : 
-                          user._id === thread.sellerId ? thread.buyerId : 
-                          otherId;
-    
-    const username = usernames[relevantUserId] || '';
-    const matchesSearch = username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (thread.lastMessage && thread.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (thread.productTitle && thread.productTitle.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    // If unread filter is active, only show threads with unread messages
-    if (unreadFilter) {
-      return matchesSearch && thread.unreadCount > 0;
+  // Fetch threads function moved outside useEffect for better code organization
+  const fetchThreads = useCallback(async () => {
+    if (!user?.token) {
+      setError("No authentication token found. Please log in.");
+      setLoading(false);
+      return;
     }
     
-    return matchesSearch;
-  });
+    try {
+      setLoading(true);
+      
+      // Use Promise.all to fetch threads and thread details in parallel
+      const [threadsResponse] = await Promise.all([
+        axiosWithAuth.get("/api/chats")
+      ]);
+      
+      // Process threads data
+      let threadsList = [];
+      if (Array.isArray(threadsResponse.data)) {
+        threadsList = threadsResponse.data;
+      } else if (threadsResponse.data && typeof threadsResponse.data === 'object' && threadsResponse.data.threads) {
+        threadsList = threadsResponse.data.threads;
+      } else {
+        throw new Error("Unexpected API response format");
+      }
+      
+      // Use Promise.allSettled to fetch all thread details in parallel
+      // This continues even if some requests fail
+      const threadDetailsPromises = threadsList.map(thread => 
+        axiosWithAuth.get(`/api/chats/thread/${thread.threadId}`)
+          .then(res => ({
+            ...thread,
+            ...res.data,
+            timestamp: res.data?.lastTimestamp || Date.now(),
+            lastMessage: res.data?.lastMessage || ""
+          }))
+          .catch(err => ({
+            ...thread,
+            timestamp: Date.now() - (Math.random() * 1000000),
+            lastMessage: "Conversation started"
+          }))
+      );
+      
+      const threadsWithDetailsResults = await Promise.allSettled(threadDetailsPromises);
+      const threadsWithDetails = threadsWithDetailsResults
+        .filter(result => result.status === 'fulfilled')
+        .map(result => result.value);
+      
+      // Sort threads by timestamp (newest first)
+      const sortedThreads = threadsWithDetails.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      
+      setThreads(sortedThreads);
+      
+      // Collect unique user IDs efficiently
+      const userIds = new Set();
+      threadsWithDetails.forEach(thread => {
+        if (thread.otherUserId) userIds.add(thread.otherUserId);
+        if (thread.buyerId && thread.buyerId !== user._id) userIds.add(thread.buyerId);
+        if (thread.sellerId && thread.sellerId !== user._id) userIds.add(thread.sellerId);
+      });
+      
+      // Batch user info requests with Promise.allSettled
+      const userPromises = Array.from(userIds).map(userId => 
+        axiosWithAuth.get(`/api/users/${userId}`)
+          .then(res => {
+            const userData = res.data?.user;
+            if (!userData) return [userId, `User ${userId.substring(0, 5)}...`];
+            
+            // Determine the appropriate name
+            let name;
+            if (userData.role === 'seller' || userData.role === 'seller_pending') {
+              name = userData.sellerProfile?.studentName || 
+                    userData.sellerProfile?.businessName || 
+                    userData.name;
+            } else {
+              name = userData.name;
+            }
+            return [userId, name];
+          })
+          .catch(() => [userId, `User ${userId.substring(0, 5)}...`])
+      );
+      
+      const userResults = await Promise.allSettled(userPromises);
+      
+      // Create username mapping object from results
+      const namesObj = {};
+      userResults.forEach(result => {
+        if (result.status === 'fulfilled') {
+          const [id, name] = result.value;
+          namesObj[id] = name;
+        }
+      });
+      
+      setUsernames(namesObj);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching threads:", err);
+      setError(err.message || "Failed to fetch conversations");
+      setLoading(false);
+    }
+  }, [axiosWithAuth, user?._id]);
   
-  const formatMessageTime = (timestamp) => {
+  useEffect(() => {
+    fetchThreads();
+  }, [fetchThreads]);
+  
+  // Memoize filtered threads to avoid recalculation on every render
+  const filteredThreads = useMemo(() => {
+    return threads.filter(thread => {
+      const otherId = thread.otherUserId;
+      const relevantUserId = user._id === thread.buyerId ? thread.sellerId : 
+                            user._id === thread.sellerId ? thread.buyerId : 
+                            otherId;
+      
+      const username = usernames[relevantUserId] || '';
+      const searchLower = searchQuery.toLowerCase();
+      
+      const matchesSearch = !searchQuery || 
+                           username.toLowerCase().includes(searchLower) ||
+                           (thread.lastMessage && thread.lastMessage.toLowerCase().includes(searchLower)) ||
+                           (thread.productTitle && thread.productTitle.toLowerCase().includes(searchLower));
+      
+      return matchesSearch && (!unreadFilter || thread.unreadCount > 0);
+    });
+  }, [threads, usernames, searchQuery, unreadFilter, user?._id]);
+  
+  // Memoize total unread count
+  const totalUnreadCount = useMemo(() => {
+    return threads.reduce((total, thread) => total + (thread.unreadCount || 0), 0);
+  }, [threads]);
+  
+  // Format message time function optimized to avoid unnecessary date parsing
+  const formatMessageTime = useCallback((timestamp) => {
     if (!timestamp) return '';
     
     try {
       const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return '';
+      
       const now = new Date();
-      
-      // Check if valid date
-      if (isNaN(date.getTime())) {
-        console.warn("Invalid timestamp:", timestamp);
-        return '';
-      }
-      
       const today = new Date(now);
       today.setHours(0, 0, 0, 0);
       
@@ -192,21 +171,49 @@ const ChatList = () => {
       const isYesterday = messageDate.getTime() === today.getTime() - 86400000;
       
       if (isToday) {
-        return format(new Date(timestamp), 'h:mm a');
+        return format(date, 'h:mm a');
       } else if (isYesterday) {
         return 'Yesterday';
       } else {
-        return format(new Date(timestamp), 'MM/dd/yy');
+        return format(date, 'MM/dd/yy');
       }
-    } catch (err) {
-      console.error("Error formatting timestamp:", timestamp, err);
+    } catch {
       return '';
     }
-  };
+  }, []);
   
-  const renderSkeletonLoader = () => (
+  // Get thread name function optimized and memoized
+  const getThreadName = useCallback((thread) => {
+    if (thread.buyerId && thread.sellerId) {
+      const isUserBuyer = user._id === thread.buyerId;
+      const relevantUserId = isUserBuyer ? thread.sellerId : thread.buyerId;
+      
+      if (isUserBuyer && thread.sellerName) return thread.sellerName;
+      if (!isUserBuyer && thread.buyerName) return thread.buyerName;
+      
+      return usernames[relevantUserId] || `User ${relevantUserId?.substring(0, 5)}...`;
+    }
+    
+    return usernames[thread.otherUserId] || `User ${thread.otherUserId?.substring(0, 5)}...`;
+  }, [usernames, user?._id]);
+  
+  // Event handlers
+  const handleSearchChange = useCallback((e) => {
+    setSearchQuery(e.target.value);
+  }, []);
+  
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery("");
+  }, []);
+  
+  const toggleUnreadFilter = useCallback(() => {
+    setUnreadFilter(prev => !prev);
+  }, []);
+  
+  // Optimized skeleton loader using memo
+  const renderSkeletonLoader = useMemo(() => (
     <div className="chat-list-skeleton">
-      {[1, 2, 3, 4, 5].map(i => (
+      {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="chat-thread-skeleton">
           <div className="avatar-skeleton"></div>
           <div className="content-skeleton">
@@ -216,28 +223,9 @@ const ChatList = () => {
         </div>
       ))}
     </div>
-  );
+  ), []);
   
-  const totalUnreadCount = threads.reduce((total, thread) => total + (thread.unreadCount || 0), 0);
-  
-  // Get appropriate name for a thread
-  const getThreadName = (thread) => {
-    // If thread has both buyer and seller info
-    if (thread.buyerId && thread.sellerId) {
-      const isUserBuyer = user._id === thread.buyerId;
-      const relevantUserId = isUserBuyer ? thread.sellerId : thread.buyerId;
-      // First try the cached names from thread details
-      if (isUserBuyer && thread.sellerName) return thread.sellerName;
-      if (!isUserBuyer && thread.buyerName) return thread.buyerName;
-      // Fall back to usernames lookup
-      return usernames[relevantUserId] || `User ${relevantUserId?.substring(0, 5)}...`;
-    }
-    
-    // Fall back to original logic
-    return usernames[thread.otherUserId] || `User ${thread.otherUserId?.substring(0, 5)}...`;
-  };
-  
-  if (loading) return <div className="chat-list-container">{renderSkeletonLoader()}</div>;
+  if (loading) return <div className="chat-list-container">{renderSkeletonLoader}</div>;
   if (error) return <div className="chat-list-container error-message">{error}</div>;
   
   return (
@@ -258,7 +246,7 @@ const ChatList = () => {
         <div className="header-actions">
           <button 
             className={`icon-button filter-button ${unreadFilter ? 'active' : ''}`}
-            onClick={() => setUnreadFilter(!unreadFilter)}
+            onClick={toggleUnreadFilter}
             title={unreadFilter ? "Show all messages" : "Show unread messages"}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -287,13 +275,13 @@ const ChatList = () => {
           type="text" 
           placeholder="Search conversations..." 
           value={searchQuery} 
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleSearchChange}
           className="search-input"
         />
         {searchQuery && (
           <button 
             className="clear-button" 
-            onClick={() => setSearchQuery("")}
+            onClick={handleClearSearch}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -319,7 +307,7 @@ const ChatList = () => {
           </p>
           {!unreadFilter && <button className="new-chat-button">Start a new conversation</button>}
           {unreadFilter && (
-            <button className="show-all-button" onClick={() => setUnreadFilter(false)}>
+            <button className="show-all-button" onClick={toggleUnreadFilter}>
               Show all messages
             </button>
           )}
@@ -347,7 +335,7 @@ const ChatList = () => {
                   <div className="chat-preview">
                     <div className="chat-header">
                       <h4>{getThreadName(thread)}</h4>
-                      <span className="chat-time">{thread.timestamp ? formatMessageTime(thread.timestamp) : ''}</span>
+                      <span className="chat-time">{formatMessageTime(thread.timestamp)}</span>
                     </div>
                     <div className="chat-content">
                       <p className={`last-message ${thread.unreadCount > 0 ? 'bold' : ''}`}>
@@ -473,4 +461,4 @@ const ChatList = () => {
   );
 };
 
-export default ChatList;
+export default React.memo(ChatList);

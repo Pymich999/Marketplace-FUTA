@@ -5,6 +5,19 @@ import {FaComment} from "react-icons/fa";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const SellerDashboard = () => {
+  // Fixed categories array
+  const FIXED_CATEGORIES = [
+    "Electronics", 
+    "Books", 
+    "Fashion", 
+    "Home & Kitchen", 
+    "Beauty", 
+    "Sports", 
+    "Food", 
+    "Services", 
+    "Others"
+  ];
+
   // State for managing different views
   const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
@@ -26,6 +39,9 @@ const SellerDashboard = () => {
   const [stats, setStats] = useState({
     totalProducts: 0
   });
+
+  // Notification system
+  const [notifications, setNotifications] = useState([]);
   
   // Form state for product upload
   const [newProduct, setNewProduct] = useState({
@@ -34,8 +50,8 @@ const SellerDashboard = () => {
     price: '',
     category: '',
     stock: '',
-    tags: '',
-    images: []
+    images: [],
+    existingImages: [] // Add this to store existing image URLs
   });
   
   // State for image previews
@@ -43,6 +59,20 @@ const SellerDashboard = () => {
   
   // Selected product for editing
   const [selectedProduct, setSelectedProduct] = useState(null);
+  
+  // Show notification function
+  const showNotification = (message, type = 'info') => {
+    // Generate a unique ID for this notification
+    const id = Date.now();
+    
+    // Add the notification to state
+    setNotifications(prev => [...prev, { id, message, type }]);
+    
+    // Automatically remove the notification after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(notification => notification.id !== id));
+    }, 5000);
+  };
   
   // Handle logout
   const handleLogout = () => {
@@ -65,6 +95,7 @@ const SellerDashboard = () => {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           } else {
             setError('Authentication token not found. Please log in again.');
+            showNotification('Authentication token not found. Please log in again.', 'error');
             setIsLoading(false);
             return;
           }
@@ -77,12 +108,14 @@ const SellerDashboard = () => {
           }
         } else {
           setError('User data not found. Please log in again.');
+          showNotification('User data not found. Please log in again.', 'error');
           setIsLoading(false);
           return;
         }
       } catch (err) {
         console.error('Dashboard data error:', err);
         setError('Failed to load dashboard data. Please make sure you are logged in as a seller.');
+        showNotification('Failed to load dashboard data. Please check your connection.', 'error');
       } finally {
         setIsLoading(false);
       }
@@ -114,12 +147,24 @@ const SellerDashboard = () => {
     }
   };
 
+  const handleCategorySelect = (category) => {
+    setNewProduct({
+      ...newProduct,
+      category: category
+    });
+  };
+
+   // Handle orders navigation
+  const handleOrdersClick = () => {
+    navigate('/list');
+  };
+
   const handleImageUpload = (e, index) => {
     const file = e.target.files[0];
     if (!file) return;
     
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image size must be less than 5MB');
+      showNotification('Image size must be less than 5MB', 'error');
       return;
     }
 
@@ -135,9 +180,14 @@ const SellerDashboard = () => {
     const newImages = [...currentImages];
     newImages[index] = file;
     
+    // Create a new array of existing images with a null at the same index
+    const existingImagesCopy = [...newProduct.existingImages];
+    existingImagesCopy[index] = null;
+    
     setNewProduct({
       ...newProduct,
-      images: newImages.filter(img => img !== undefined)
+      images: newImages.filter(img => img !== undefined),
+      existingImages: existingImagesCopy
     });
   };
 
@@ -151,9 +201,14 @@ const SellerDashboard = () => {
     const newImages = [...currentImages];
     newImages[index] = undefined;
     
+    // Also clear this index from existingImages
+    const existingImagesCopy = [...newProduct.existingImages];
+    existingImagesCopy[index] = null;
+    
     setNewProduct({
       ...newProduct,
-      images: newImages.filter(img => img !== undefined)
+      images: newImages.filter(img => img !== undefined),
+      existingImages: existingImagesCopy
     });
   };
 
@@ -164,23 +219,54 @@ const SellerDashboard = () => {
 
     try {
       const user = JSON.parse(localStorage.getItem('user')) || {};
-      if (!user.token) throw new Error('Authentication required');
-
-      const files = Array.from(newProduct.images);
-      if (files.length === 0) throw new Error('At least one image is required');
-      
-      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (files.some(file => !validTypes.includes(file.type))) {
-        throw new Error('Only JPG, PNG, or WEBP images are allowed');
+      if (!user.token) {
+        throw new Error('Authentication required');
       }
 
-      const uploadPromises = files.map(async (file, index) => {
-        const result = await uploadImage(file);
-        setUploadProgress(Math.round(((index + 1) / files.length) * 100));
-        return result.secure_url;
-      });
+      // Validate category selection
+      if (!newProduct.category) {
+        throw new Error('Please select a category');
+      }
 
-      const imageUrls = await Promise.all(uploadPromises);
+      const files = Array.from(newProduct.images || []);
+      const existingImagesArray = newProduct.existingImages || [];
+      
+      // Check if we have any files to upload or existing images to keep
+      const hasNewImages = files.length > 0;
+      const hasExistingImages = existingImagesArray.some(url => url !== null && url !== undefined);
+      
+      // Only validate images if there are no existing images being kept
+      if (!hasNewImages && !hasExistingImages) {
+        throw new Error('At least one image is required');
+      }
+      
+      // Validate new image files if any
+      if (hasNewImages) {
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (files.some(file => !validTypes.includes(file.type))) {
+          throw new Error('Only JPG, PNG, or WEBP images are allowed');
+        }
+      }
+
+      // Upload new images if any
+      let imageUrls = [];
+      
+      if (hasNewImages) {
+        const uploadPromises = files.map(async (file, index) => {
+          const result = await uploadImage(file);
+          setUploadProgress(Math.round(((index + 1) / files.length) * 100));
+          return result.secure_url;
+        });
+        
+        const newImageUrls = await Promise.all(uploadPromises);
+        imageUrls = [...newImageUrls];
+      }
+      
+      // Merge with kept existing images
+      if (hasExistingImages) {
+        // Filter out null values and add existing images that we're keeping
+        imageUrls = [...imageUrls, ...existingImagesArray.filter(url => url !== null && url !== undefined)];
+      }
 
       const productData = {
         title: newProduct.title.trim(),
@@ -188,9 +274,6 @@ const SellerDashboard = () => {
         price: parseFloat(newProduct.price),
         category: newProduct.category.trim(),
         stock: parseInt(newProduct.stock, 10),
-        tags: typeof newProduct.tags === 'string' 
-          ? newProduct.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
-          : [],
         images: imageUrls
       };
 
@@ -218,6 +301,8 @@ const SellerDashboard = () => {
         setProducts(products.map(p => 
           p._id === selectedProduct._id ? response.data : p
         ));
+        
+        showNotification('Product updated successfully!', 'success');
       } else {
         response = await axios.post(
           '/api/products',
@@ -225,20 +310,24 @@ const SellerDashboard = () => {
           config
         );
         setProducts([...products, response.data]);
+        
+        showNotification('Product added successfully!', 'success');
       }
 
+      // Reset form
       setNewProduct({
         title: '',
         description: '',
         price: '',
         category: '',
         stock: '',
-        tags: '',
-        images: []
+        images: [],
+        existingImages: []
       });
       setImagePreviews([null, null, null]);
-
-      alert(`Product ${selectedProduct ? 'updated' : 'added'} successfully!`);
+      setSelectedProduct(null);
+      
+      // Navigate back to products tab
       setActiveTab('products');
 
     } catch (err) {
@@ -251,6 +340,7 @@ const SellerDashboard = () => {
         errorMessage = err.message;
       }
       setError(`Operation failed: ${errorMessage}`);
+      showNotification(`Operation failed: ${errorMessage}`, 'error');
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -262,10 +352,11 @@ const SellerDashboard = () => {
       try {
         await axios.delete(`/api/products/${productId}`);
         setProducts(products.filter(product => product._id !== productId));
-        alert('Product deleted successfully');
+        showNotification('Product deleted successfully', 'warning');
       } catch (err) {
         console.error('Product delete error:', err);
         setError('Failed to delete product. Please try again.');
+        showNotification('Failed to delete product. Please try again.', 'error');
       }
     }
   };
@@ -273,12 +364,12 @@ const SellerDashboard = () => {
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'NGN'
     }).format(amount);
   };
 
   if (isLoading) return <div className="loading">Loading dashboard...</div>;
-  if (error) return <div className="error-message">{error}</div>;
+  if (error && !notifications.length) return <div className="error-message">{error}</div>;
   
   // Check if user role is seller_pending
   if (user?.role === 'seller_pending') {
@@ -298,6 +389,26 @@ const SellerDashboard = () => {
           >
             Logout
           </button>
+        </div>
+        
+        {/* Notification System */}
+        <div className="notification-container">
+          {notifications.map(notification => (
+            <div 
+              key={notification.id} 
+              className={`notification notification-${notification.type}`}
+            >
+              {notification.message}
+              <button 
+                className="notification-close"
+                onClick={() => setNotifications(prev => 
+                  prev.filter(n => n.id !== notification.id)
+                )}
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
         
         {/* Logout Confirmation Modal */}
@@ -329,6 +440,26 @@ const SellerDashboard = () => {
 
   return (
     <div className="seller-dashboard">
+      {/* Notification System */}
+      <div className="notification-container">
+        {notifications.map(notification => (
+          <div 
+            key={notification.id} 
+            className={`notification notification-${notification.type}`}
+          >
+            {notification.message}
+            <button 
+              className="notification-close"
+              onClick={() => setNotifications(prev => 
+                prev.filter(n => n.id !== notification.id)
+              )}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
         <div className="modal-overlay">
@@ -379,15 +510,13 @@ const SellerDashboard = () => {
               >
                 Products
               </li>
-              <li>
-              <li
-        className={activeTab === 'orders' ? 'active' : ''}
-        onClick={() => navigate('/list')}
-      >
-        <FaComment/>
-        <span className="nav-text">Orders</span>
-      </li>
-            </li>
+              <li 
+                className={activeTab === 'orders' ? 'active' : ''} 
+                onClick={handleOrdersClick}
+              >
+                <FaComment />
+                <span className="nav-text">Orders</span>
+              </li>
               <li 
                 className={activeTab === 'add-product' ? 'active' : ''} 
                 onClick={() => setActiveTab('add-product')}
@@ -483,18 +612,19 @@ const SellerDashboard = () => {
                               price: product.price,
                               category: product.category || '',
                               stock: product.stock,
-                              tags: product.tags ? product.tags.join(', ') : '',
-                              images: []
+                              images: [], // New images to upload
+                              existingImages: product.images || [] // Store existing image URLs
                             });
+                            
+                            // Set the image previews from existing images
+                            const newPreviews = [null, null, null];
                             if (product.images && product.images.length > 0) {
-                              const newPreviews = [...imagePreviews];
                               product.images.forEach((img, idx) => {
                                 if (idx < 3) newPreviews[idx] = img;
                               });
-                              setImagePreviews(newPreviews);
-                            } else {
-                              setImagePreviews([null, null, null]);
                             }
+                            setImagePreviews(newPreviews);
+                            
                             setActiveTab('add-product');
                           }}
                         >
@@ -584,30 +714,22 @@ const SellerDashboard = () => {
                 </div>
                 
                 <div className="form-group">
-                  <label htmlFor="category">Category</label>
-                  <input 
-                    type="text" 
-                    id="category" 
-                    name="category" 
-                    value={newProduct.category} 
-                    onChange={handleInputChange}
-                  />
+                  <label>Category*</label>
+                  <div className="category-bubbles">
+                    {FIXED_CATEGORIES.map((category, index) => (
+                      <div 
+                        key={index}
+                        className={`category-bubble ${newProduct.category === category ? 'selected' : ''}`}
+                        onClick={() => handleCategorySelect(category)}
+                      >
+                        {category}
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 
                 <div className="form-group">
-                  <label htmlFor="tags">Tags (comma separated)</label>
-                  <input 
-                    type="text" 
-                    id="tags" 
-                    name="tags" 
-                    value={newProduct.tags} 
-                    onChange={handleInputChange}
-                    placeholder="e.g. electronics, smartphone, accessory"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Product Images* (Select exactly 3 images)</label>
+                  <label>Product Images* {selectedProduct ? '(Keep empty to use existing images)' : ''}</label>
                   <div className="modern-image-upload">
                     {[0, 1, 2].map((index) => (
                       <div key={`image-upload-${index}`} className="image-upload-container">
@@ -641,7 +763,12 @@ const SellerDashboard = () => {
                       </div>
                     ))}
                   </div>
-                  <small className="form-help">Click the + icon to upload each image</small>
+                  <small className="form-help">
+                    {selectedProduct 
+                      ? "Click the × button to remove existing images. Only upload new images if you want to replace the existing ones."
+                      : "Click the + icon to upload each image"
+                    }
+                  </small>
                 </div>
                 
                 <div className="form-actions">
@@ -657,8 +784,8 @@ const SellerDashboard = () => {
                           price: '',
                           category: '',
                           stock: '',
-                          tags: '',
-                          images: []
+                          images: [],
+                          existingImages: []
                         });
                         setImagePreviews([null, null, null]);
                       }}

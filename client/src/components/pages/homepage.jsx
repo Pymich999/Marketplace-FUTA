@@ -11,16 +11,33 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaStore,
+  FaFilter,
+  FaTimes,
+  FaAngleDown,
+  FaCheck
 } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "../../features/cart/cartSlice";
 import Navbar from "../navbar";
 import "../../index.css";
 
+// Define fixed categories that won't change as products are added
+const FIXED_CATEGORIES = [
+  "Electronics",
+  "Books",
+  "Fashion",
+  "Home & Kitchen",
+  "Beauty",
+  "Sports",
+  "Food",
+  "Services",
+  "Others"
+];
+
 const HomePage = () => {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
-  const [categories, setCategories] = useState([]);
+  const [activeCategories, setActiveCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,6 +48,7 @@ const HomePage = () => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollRef = useRef(null);
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -43,7 +61,7 @@ const HomePage = () => {
         const res = await axios.get("http://localhost:3000/api/products");
         setProducts(res.data);
 
-        // Extract all unique categories
+        // Extract all unique categories from products to know which fixed categories to activate
         const allCategories = res.data.flatMap((product) =>
           (product.category || "")
             .split(",")
@@ -51,7 +69,15 @@ const HomePage = () => {
             .filter(Boolean)
         );
         const uniqueCategories = [...new Set(allCategories)];
-        setCategories(uniqueCategories);
+        
+        // Set the active categories based on what exists in the products
+        setActiveCategories(
+          FIXED_CATEGORIES.filter(category => 
+            uniqueCategories.some(prodCat => 
+              prodCat.toLowerCase().includes(category.toLowerCase())
+            )
+          )
+        );
 
         setError(null);
       } catch (error) {
@@ -184,6 +210,11 @@ const HomePage = () => {
     return `₦${price.toLocaleString()}`;
   };
 
+  // Handle filter toggle on mobile
+  const toggleFilterMenu = () => {
+    setIsFilterMenuOpen(!isFilterMenuOpen);
+  };
+
   // Header with logo and cart/seller action
   const Header = () => (
     <div className="site-header">
@@ -206,7 +237,7 @@ const HomePage = () => {
     </div>
   );
 
-    if (isDetailOpen && selectedProduct) {
+  if (isDetailOpen && selectedProduct) {
     return (
       <>
         <Header />
@@ -426,7 +457,7 @@ const HomePage = () => {
     );
   }
 
-    return (
+  return (
     <>
       <Header />
 
@@ -461,22 +492,47 @@ const HomePage = () => {
         </div>
       </header>
 
-      <div className="category-navigation">
+      {/* Mobile filter toggle button */}
+      <div className="mobile-filter-toggle">
+        <button onClick={toggleFilterMenu}>
+          {isFilterMenuOpen ? <FaTimes /> : <FaFilter />} 
+          {isFilterMenuOpen ? "Close Filters" : "Filter Products"}
+        </button>
+      </div>
+
+      {/* Category navigation - now with fixed categories */}
+      <div className={`category-navigation ${isFilterMenuOpen ? 'open' : ''}`}>
         <button
           className={selectedCategory === "" ? "active" : ""}
-          onClick={() => setSelectedCategory("")}
+          onClick={() => {
+            setSelectedCategory("");
+            setIsFilterMenuOpen(false);
+          }}
         >
           All Products
         </button>
-        {categories.map((cat, index) => (
-          <button
-            key={index}
-            className={selectedCategory === cat ? "active" : ""}
-            onClick={() => setSelectedCategory(cat)}
-          >
-            {cat}
-          </button>
-        ))}
+        
+        {FIXED_CATEGORIES.map((cat, index) => {
+          // Check if this category has products
+          const hasProducts = activeCategories.includes(cat);
+          
+          return (
+            <button
+              key={index}
+              className={`${selectedCategory === cat ? "active" : ""} ${!hasProducts ? "disabled" : ""}`}
+              onClick={() => {
+                if (hasProducts) {
+                  setSelectedCategory(cat);
+                  setIsFilterMenuOpen(false);
+                }
+              }}
+              disabled={!hasProducts}
+            >
+              {cat} 
+              {selectedCategory === cat && <FaCheck className="filter-selected" />}
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
