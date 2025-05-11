@@ -50,22 +50,42 @@ const ChatList = () => {
         
         console.log("Original threads:", threadsList);
         
-        // Ensure all threads have valid timestamps
-        threadsList = threadsList.map(thread => {
-          if (!thread.timestamp) {
-            console.warn("Thread missing timestamp:", thread);
-            return { ...thread, timestamp: new Date(0).toISOString() }; // Default timestamp
+        // Fetch thread details for each thread including timestamps
+        const threadsWithDetails = await Promise.all(threadsList.map(async (thread) => {
+          try {
+            // Fetch detailed thread information from Firestore (includes lastTimestamp)
+            const threadDetailsResponse = await axios.get(`/api/chats/thread/${thread.threadId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            const threadDetails = threadDetailsResponse.data;
+            
+            // Merge thread details with thread info
+            return {
+              ...thread,
+              ...threadDetails,
+              timestamp: threadDetails?.lastTimestamp || Date.now(), // Use lastTimestamp or current time
+              lastMessage: threadDetails?.lastMessage || ""
+            };
+          } catch (err) {
+            console.warn(`Could not fetch details for thread ${thread.threadId}:`, err);
+            // Return thread with default timestamp
+            return {
+              ...thread,
+              timestamp: Date.now() - (Math.random() * 1000000), // Add some randomness to avoid collision
+              lastMessage: "Conversation started"
+            };
           }
-          return thread;
-        });
+        }));
+        
+        console.log("Threads with details:", threadsWithDetails);
         
         // Sort threads by timestamp (newest first)
-        const sortedThreads = [...threadsList].sort((a, b) => {
-          console.log(`Comparing: ${a.threadId} (${a.timestamp}) vs ${b.threadId} (${b.timestamp})`);
-          const dateA = new Date(a.timestamp);
-          const dateB = new Date(b.timestamp);
-          console.log(`Converted dates: ${dateA} vs ${dateB}`);
-          return dateB - dateA; // Newest first
+        const sortedThreads = [...threadsWithDetails].sort((a, b) => {
+          // Ensure both have timestamps, default to 0 if missing
+          const timeA = a.timestamp || 0;
+          const timeB = b.timestamp || 0;
+          return timeB - timeA; // Newest first
         });
         
         console.log("Sorted threads:", sortedThreads);
@@ -74,8 +94,11 @@ const ChatList = () => {
         
         // Get unique user IDs from threads
         const userIds = new Set();
-        threadsList.forEach(thread => {
+        threadsWithDetails.forEach(thread => {
           userIds.add(thread.otherUserId);
+          // Also add from thread details if available
+          if (thread.buyerId && thread.buyerId !== user._id) userIds.add(thread.buyerId);
+          if (thread.sellerId && thread.sellerId !== user._id) userIds.add(thread.sellerId);
         });
         
         console.log("Fetching user info for:", Array.from(userIds));
@@ -83,6 +106,8 @@ const ChatList = () => {
         // Fetch user info for each unique user ID
         const names = {};
         await Promise.all(Array.from(userIds).map(async (userId) => {
+          if (!userId) return; // Skip undefined or null IDs
+          
           try {
             const userResponse = await axios.get(`/api/users/${userId}`, {
               headers: { Authorization: `Bearer ${token}` }
@@ -125,9 +150,16 @@ const ChatList = () => {
   
   // Apply filters (search and unread)
   const filteredThreads = threads.filter(thread => {
-    const username = usernames[thread.otherUserId] || '';
+    const otherId = thread.otherUserId;
+    // If user is buyer, show seller name and vice versa
+    const relevantUserId = user._id === thread.buyerId ? thread.sellerId : 
+                          user._id === thread.sellerId ? thread.buyerId : 
+                          otherId;
+    
+    const username = usernames[relevantUserId] || '';
     const matchesSearch = username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (thread.lastMessage && thread.lastMessage.toLowerCase().includes(searchQuery.toLowerCase()));
+                          (thread.lastMessage && thread.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          (thread.productTitle && thread.productTitle.toLowerCase().includes(searchQuery.toLowerCase()));
     
     // If unread filter is active, only show threads with unread messages
     if (unreadFilter) {
@@ -187,6 +219,23 @@ const ChatList = () => {
   );
   
   const totalUnreadCount = threads.reduce((total, thread) => total + (thread.unreadCount || 0), 0);
+  
+  // Get appropriate name for a thread
+  const getThreadName = (thread) => {
+    // If thread has both buyer and seller info
+    if (thread.buyerId && thread.sellerId) {
+      const isUserBuyer = user._id === thread.buyerId;
+      const relevantUserId = isUserBuyer ? thread.sellerId : thread.buyerId;
+      // First try the cached names from thread details
+      if (isUserBuyer && thread.sellerName) return thread.sellerName;
+      if (!isUserBuyer && thread.buyerName) return thread.buyerName;
+      // Fall back to usernames lookup
+      return usernames[relevantUserId] || `User ${relevantUserId?.substring(0, 5)}...`;
+    }
+    
+    // Fall back to original logic
+    return usernames[thread.otherUserId] || `User ${thread.otherUserId?.substring(0, 5)}...`;
+  };
   
   if (loading) return <div className="chat-list-container">{renderSkeletonLoader()}</div>;
   if (error) return <div className="chat-list-container error-message">{error}</div>;
@@ -277,37 +326,54 @@ const ChatList = () => {
         </div>
       ) : (
         <ul className="chat-threads">
-          {filteredThreads.map(thread => (
-            <li key={thread.threadId} className={`chat-thread-item ${thread.unreadCount > 0 ? 'unread' : ''}`}>
-              <Link to={`/chats/${thread.threadId}`} className="chat-thread-link">
-                <div className="avatar-container">
-                  <div className="avatar-image">
-                    {usernames[thread.otherUserId]?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                  {thread.unreadCount > 0 && (
-                    <div className="avatar-status-indicator"></div>
-                  )}
-                </div>
-                
-                <div className="chat-preview">
-                  <div className="chat-header">
-                    <h4>{usernames[thread.otherUserId] || `User ${thread.otherUserId?.substring(0, 5)}...`}</h4>
-                    <span className="chat-time">{thread.timestamp ? formatMessageTime(thread.timestamp) : ''}</span>
-                  </div>
-                  <div className="chat-content">
-                    <p className={`last-message ${thread.unreadCount > 0 ? 'bold' : ''}`}>
-                      {thread.lastMessage && thread.lastMessage.length > 40 
-                        ? `${thread.lastMessage.substring(0, 40)}...` 
-                        : thread.lastMessage || 'Start a conversation'}
-                    </p>
+          {filteredThreads.map(thread => {
+            // Generate a preview that includes product info if available
+            const previewText = thread.productTitle 
+              ? `${thread.lastMessage || `About: ${thread.productTitle}`}`
+              : (thread.lastMessage || 'Start a conversation');
+              
+            return (
+              <li key={thread.threadId} className={`chat-thread-item ${thread.unreadCount > 0 ? 'unread' : ''}`}>
+                <Link to={`/chats/${thread.threadId}`} className="chat-thread-link">
+                  <div className="avatar-container">
+                    <div className="avatar-image">
+                      {getThreadName(thread)?.charAt(0).toUpperCase() || 'U'}
+                    </div>
                     {thread.unreadCount > 0 && (
-                      <span className="unread-badge">{thread.unreadCount}</span>
+                      <div className="avatar-status-indicator"></div>
                     )}
                   </div>
-                </div>
-              </Link>
-            </li>
-          ))}
+                  
+                  <div className="chat-preview">
+                    <div className="chat-header">
+                      <h4>{getThreadName(thread)}</h4>
+                      <span className="chat-time">{thread.timestamp ? formatMessageTime(thread.timestamp) : ''}</span>
+                    </div>
+                    <div className="chat-content">
+                      <p className={`last-message ${thread.unreadCount > 0 ? 'bold' : ''}`}>
+                        {previewText && previewText.length > 40 
+                          ? `${previewText.substring(0, 40)}...` 
+                          : previewText}
+                      </p>
+                      {thread.unreadCount > 0 && (
+                        <span className="unread-badge">{thread.unreadCount}</span>
+                      )}
+                    </div>
+                    {thread.productTitle && (
+                      <div className="product-preview">
+                        <span className="product-tag">
+                          {thread.productTitle} {thread.quantity ? `(${thread.quantity}×)` : ''}
+                        </span>
+                        {thread.price && (
+                          <span className="price-tag">${thread.price}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
       
@@ -376,6 +442,31 @@ const ChatList = () => {
           font-weight: 500;
           margin-top: 16px;
           cursor: pointer;
+        }
+        
+        /* New styles for product preview */
+        .product-preview {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 4px;
+          font-size: 0.75rem;
+        }
+        
+        .product-tag {
+          background-color: #f0f0f0;
+          padding: 2px 6px;
+          border-radius: 10px;
+          color: #555;
+          max-width: 70%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .price-tag {
+          font-weight: 600;
+          color: #2a9d8f;
         }
       `}</style>
     </div>
