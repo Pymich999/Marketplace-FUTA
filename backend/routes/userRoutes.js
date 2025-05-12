@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const {registerBuyer, loginUser, registerSeller, requestEmailOTP, getUserById} = require('../controllers/userControllers')
+const {registerBuyer, loginUser, registerSeller, requestEmailOTP, getUserById, requestPasswordReset, verifyResetOTP, resetPassword} = require('../controllers/userControllers')
 const {protect, isAdmin} = require('../middleware/authMiddleware')
 
 
@@ -13,6 +13,11 @@ router.post('/seller-signup', registerSeller)
 router.post('/login', loginUser)
 
 router.get('/:userId', protect, getUserById);
+
+// Password reset routes
+router.post('/request-password-reset', requestPasswordReset);
+router.post('/verify-reset-otp', verifyResetOTP);
+router.post('/reset-password', resetPassword);
 
 
 module.exports = router

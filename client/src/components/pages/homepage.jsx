@@ -14,12 +14,15 @@ import {
   FaFilter,
   FaTimes,
   FaAngleDown,
-  FaCheck
+  FaCheck,
+  FaBell,
+  FaCheckCircle
 } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "../../features/cart/cartSlice";
 import Navbar from "../navbar";
 import "../../index.css";
+import _ from 'lodash';
 
 // Define fixed categories that won't change as products are added
 const FIXED_CATEGORIES = [
@@ -49,6 +52,11 @@ const HomePage = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollRef = useRef(null);
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const [orderProgress, setOrderProgress] = useState('idle');
+  const [notifiedSellers, setNotifiedSellers] = useState([]);
+  const [failedItems, setFailedItems] = useState([]);
+  const [checkoutAttemptId, setCheckoutAttemptId] = useState(null);
+  const [orderingProduct, setOrderingProduct] = useState(null);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -58,7 +66,7 @@ const HomePage = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const res = await axios.get("http://localhost:3000/api/products");
+        const res = await axios.get("/api/products");
         setProducts(res.data);
 
         // Extract all unique categories from products to know which fixed categories to activate
@@ -158,6 +166,76 @@ const HomePage = () => {
         setAddingToCart((prev) => ({ ...prev, [productId]: false }));
       });
   };
+
+  const handleDirectOrder = _.debounce(async (product) => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    const token = user?.token;
+
+    if (!token) {
+      alert("You must be logged in to place an order");
+      return;
+    }
+
+    if (orderProgress !== 'idle') return;
+    
+    setOrderingProduct(product);
+    setOrderProgress('notifying');
+    setNotifiedSellers([]);
+    setFailedItems([]);
+
+    // Generate a unique attempt ID
+    const attemptId = checkoutAttemptId || crypto.randomUUID();
+    setCheckoutAttemptId(attemptId);
+
+    const payload = {
+      cartItems: [{
+        productId: product._id,
+        quantity: 1 // Default to 1 for direct order
+      }],
+      buyerId: user._id || user.id,
+      attemptId
+    };
+
+    try {
+      const res = await axios.post(
+        "/api/chats/checkout",
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.data.success) {
+        setNotifiedSellers(res.data.sellers || []);
+        
+        if (res.data.failedItems && res.data.failedItems.length > 0) {
+          setFailedItems(res.data.failedItems);
+        }
+        
+        // Store the successful attempt ID to prevent duplicates
+        if (res.data.attemptId) {
+          setCheckoutAttemptId(res.data.attemptId);
+        }
+
+        setTimeout(() => setOrderProgress('completed'), 2000);
+        setTimeout(() => {
+          setOrderProgress('idle');
+          navigate("/chats");
+        }, 5000);
+      } else {
+        throw new Error(res.data.message || "Order failed");
+      }
+    } catch (err) {
+      console.error("Order error:", err);
+      
+      // If it's a duplicate error, reset the attempt ID
+      if (err.response?.status === 429) {
+        setCheckoutAttemptId(null);
+      }
+      
+      alert(err.response?.data?.message || "Failed to notify seller. Please try again.");
+      setOrderProgress('idle');
+    }
+  }, 1000, { leading: true, trailing: false });
+
 
   const handleProductClick = (product) => {
     setSelectedProduct(product);
@@ -457,8 +535,109 @@ const HomePage = () => {
     );
   }
 
+   const renderOrderProgressSlider = () => {
+    if (orderProgress === 'idle' || !orderingProduct) {
+      return null;
+    }
+
+    return (
+      <div className="order-progress-overlay">
+        <div className="order-progress-container">
+          <div className="progress-slider">
+            <div className="progress-bar">
+              <div 
+                className={`progress-fill ${orderProgress === 'completed' ? 'completed' : ''}`}
+                style={{ width: orderProgress === 'notifying' ? '50%' : '100%' }}
+              ></div>
+            </div>
+            
+            <div className="progress-steps">
+              <div className="progress-step active">
+                <div className="step-icon">
+                  <FaBell />
+                </div>
+                <span>Notifying Seller</span>
+              </div>
+              
+              <div className={`progress-step ${orderProgress === 'completed' ? 'active' : ''}`}>
+                <div className="step-icon">
+                  <FaCheckCircle />
+                </div>
+                <span>Order Placed</span>
+              </div>
+            </div>
+          </div>
+          
+          {orderProgress === 'notifying' && (
+            <div className="progress-message">
+              <h3>Notifying Seller</h3>
+              <p>Please wait while we notify the seller about your order...</p>
+              <div className="loading-spinner"></div>
+            </div>
+          )}
+          
+          {orderProgress === 'completed' && (
+            <div className="progress-message success">
+              <h3>Congratulations!</h3>
+              <div className="success-icon">
+                <FaCheckCircle size={48} />
+              </div>
+              <p>Your order has been successfully placed!</p>
+              
+              {notifiedSellers.length > 0 && (
+                <div className="seller-notification">
+                  <p>The following seller has been notified:</p>
+                  <ul className="seller-list">
+                    {notifiedSellers.map((seller, idx) => (
+                      <li key={seller.sellerId || idx}>
+                        {seller.username}: {seller.quantity}× {seller.productTitle} 
+                        ({formatPrice(parseFloat(seller.price))})
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {failedItems.length > 0 && (
+                <div className="failed-items">
+                  <p className="warning">Some items couldn't be processed:</p>
+                  <ul className="failed-list">
+                    {failedItems.map((item, idx) => (
+                      <li key={idx}>
+                        {item.product || item.productId}: {item.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <button 
+                className="view-chats-btn"
+                onClick={() => navigate('/chats')}
+              >
+                View Your Chats
+              </button>
+              
+              <button 
+                className="continue-shopping-btn"
+                onClick={() => {
+                  setOrderProgress('idle');
+                  navigate('/');
+                }}
+              >
+                Continue Shopping
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+
   return (
     <>
+      {renderOrderProgressSlider()}
       <Header />
 
       <header className="hero">
@@ -619,6 +798,22 @@ const HomePage = () => {
                         >
                           View Details
                         </button>
+
+                        {/* New Order Now button */}
+              <button
+                className={`order-now-button ${
+                  orderProgress !== 'idle' && orderingProduct?._id === product._id ? 'loading' : ''
+                }`}
+                onClick={() => handleDirectOrder(product)}
+                disabled={
+                  orderProgress !== 'idle' ||
+                  addingToCart[product._id] ||
+                  cartLoading ||
+                  product.stock <= 0
+                }
+              >
+                Order Now
+              </button>
 
                         <button
                           className={`quick-add-button ${

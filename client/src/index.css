@@ -4148,3 +4148,150 @@ input:invalid, textarea:invalid {
     display: block;
   }
 }
+
+/* Password reset styles */
+.auth-links {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.forgot-password-link {
+  background: none;
+  border: none;
+  color: #1a73e8;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.forgot-password-link:hover {
+  color: #0d47a1;
+}
+
+.form-description {
+  color: #555;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.otp-input-container {
+  display: flex;
+  justify-content: space-between;
+  margin: 1.5rem 0;
+  gap: 8px;
+}
+
+.otp-input {
+  width: 40px;
+  height: 50px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1.5rem;
+  text-align: center;
+  font-weight: bold;
+  background-color: #f9f9f9;
+  transition: border-color 0.3s;
+}
+
+.otp-input:focus {
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+  outline: none;
+}
+
+.otp-timer {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.resend-otp-button {
+  background: none;
+  border: none;
+  color: #1a73e8;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.resend-otp-button:disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.back-to-login {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+  text-decoration: underline;
+}
+
+.message {
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.message.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.message.error {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
+}
+
+.input-group {
+  position: relative;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.password-input-group {
+  display: flex;
+  align-items: center;
+}
+
+.password-input-group input {
+  padding-right: 60px;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.toggle-password:hover {
+  color: #1a73e8;
+}
+
+/* Add responsive styling */
+@media (max-width: 480px) {
+  .otp-input {
+    width: 35px;
+    height: 45px;
+    font-size: 1.2rem;
+  }
+}

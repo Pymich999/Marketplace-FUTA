@@ -279,4 +279,134 @@ const getUserById = asyncHandler(async (req, res) => {
 
 const generateJwtToken = id => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '5d' });
 
-module.exports = { registerBuyer, registerSeller, loginUser,getUserById, requestEmailOTP};
+const requestPasswordReset = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    res.status(400);
+    throw new Error('Email is required');
+  }
+
+  // Check if user with this email exists
+  const user = await User.findOne({ email });
+  if (!user) {
+    res.status(404);
+    throw new Error('User with this email does not exist');
+  }
+
+  // Generate OTP
+  const otp = generateOTP();
+
+  // Save OTP to database (overwrites any existing OTP for this email)
+  await OTP.findOneAndDelete({ email });
+  await OTP.create({ 
+    email, 
+    otp,
+    purpose: 'password_reset' // Mark this OTP for password reset
+  });
+
+  // Send OTP to user's email
+  try {
+    await sendOTPEmail(email, otp, 'Password Reset');
+    res.status(200).json({ message: 'Password reset OTP sent to email successfully' });
+  } catch (error) {
+    res.status(500);
+    throw new Error('Failed to send OTP: ' + error.message);
+  }
+});
+
+/**
+ * Verify OTP for password reset
+ * @route POST /api/users/verify-reset-otp
+ * @access Public
+ */
+const verifyResetOTP = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    res.status(400);
+    throw new Error('Email and OTP are required');
+  }
+
+  // Find OTP record
+  const otpRecord = await OTP.findOne({ 
+    email, 
+    purpose: 'password_reset' 
+  });
+
+  if (!otpRecord) {
+    res.status(400);
+    throw new Error('OTP has expired or was never sent. Please request a new one.');
+  }
+
+  // Verify OTP
+  if (otpRecord.otp !== otp) {
+    res.status(400);
+    throw new Error('Invalid OTP');
+  }
+
+  // OTP is valid - we'll keep the record until password is reset
+  // Mark OTP as verified but don't delete it yet
+  otpRecord.verified = true;
+  await otpRecord.save();
+
+  res.status(200).json({ message: 'OTP verified successfully' });
+});
+
+/**
+ * Reset password with verified OTP
+ * @route POST /api/users/reset-password
+ * @access Public
+ */
+const resetPassword = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    res.status(400);
+    throw new Error('Email and new password are required');
+  }
+
+  // Check if OTP was verified
+  const otpRecord = await OTP.findOne({ 
+    email, 
+    purpose: 'password_reset',
+    verified: true
+  });
+
+  if (!otpRecord) {
+    res.status(400);
+    throw new Error('Please verify your OTP first');
+  }
+
+  // Find user
+  const user = await User.findOne({ email });
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  // Hash new password
+  const salt = await bycrypt.genSalt(10);
+  const hashedPassword = await bycrypt.hash(password, salt);
+
+  // Update user password
+  user.password = hashedPassword;
+  await user.save();
+
+  // Delete the OTP record
+  await OTP.findOneAndDelete({ email, purpose: 'password_reset' });
+
+  res.status(200).json({ message: 'Password reset successfully' });
+});
+
+// Add these to module.exports
+module.exports = { 
+  registerBuyer, 
+  registerSeller, 
+  loginUser,
+  getUserById, 
+  requestEmailOTP,
+  requestPasswordReset,    // Add this
+  verifyResetOTP,          // Add this
+  resetPassword            // Add this
+};
