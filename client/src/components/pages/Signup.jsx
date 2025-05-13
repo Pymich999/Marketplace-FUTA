@@ -17,6 +17,7 @@ const Signup = () => {
     const [otpVerified, setOtpVerified] = useState(false);
     const [isRequestingOtp, setIsRequestingOtp] = useState(false);
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+    const [showPassword, setShowPassword] = useState(false); // Added missing state for password visibility
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
@@ -106,6 +107,7 @@ const Signup = () => {
                 <img 
                     src={futaLogo} 
                     className="auth-logo" 
+                    alt="FUTA Marketplace Logo"
                 />
             </div>
             <header className="auth-title">
@@ -138,15 +140,24 @@ const Signup = () => {
                     required 
                 />
                 
-                <input 
-                    type="password" 
-                    name="password" 
-                    value={formData.password} 
-                    onChange={handleChange} 
-                    placeholder="Password" 
-                    className="signup-input" 
-                    required 
-                />
+                <div className="input-group password-input-group">
+                    <input 
+                        type={showPassword ? "text" : "password"} 
+                        name="password" 
+                        value={formData.password} 
+                        onChange={handleChange} 
+                        placeholder="Password" 
+                        className="login-input" 
+                        required 
+                    />
+                    <button 
+                        type="button" 
+                        className="toggle-password"
+                        onClick={() => setShowPassword(!showPassword)}
+                    >
+                        {showPassword ? "Hide" : "Show"}
+                    </button>
+                </div>
                 
                 <input 
                     type="text" 
