@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   FaBars, 
@@ -10,7 +10,6 @@ import {
   FaStore,
   FaAngleDown,
   FaTimes,
-  FaFacebookMessenger,
   FaComment,
 } from "react-icons/fa";
 
@@ -18,16 +17,20 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const navRef = useRef(null);
   
-  // Handle screen resize
+  // Handle screen resize and detect mobile view
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth > 768) {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      
+      // Only auto-open on desktop
+      if (!mobile) {
         setIsOpen(true);
-      } else {
-        setIsOpen(false);
       }
     };
     
@@ -43,11 +46,23 @@ const Navbar = () => {
   
   // Close sidebar when route changes on mobile
   useEffect(() => {
-    if (window.innerWidth <= 768) {
+    if (isMobile) {
       setIsOpen(false);
     }
-  }, [location]);
+  }, [location, isMobile]);
   
+  // Handle clicks outside the navbar to close it on mobile
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isMobile && isOpen && navRef.current && !navRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen, isMobile]);
+
   // Check if the link is active
   const isActive = (path) => {
     return location.pathname === path ? "active" : "";
@@ -62,15 +77,20 @@ const Navbar = () => {
     }));
   };
 
+  // Toggle mobile menu
+  const toggleMobileMenu = () => {
+    setIsOpen(!isOpen);
+  };
+
   // Logout handler
   const handleLogout = () => {
-  console.log('Logout initiated');
-  localStorage.removeItem('user');
-  console.log('User removed from localStorage');
-  setShowLogoutModal(false);
-  console.log('Navigating to login page');
-  navigate('/signup');
-};
+    console.log('Logout initiated');
+    localStorage.removeItem('user');
+    console.log('User removed from localStorage');
+    setShowLogoutModal(false);
+    console.log('Navigating to login page');
+    navigate('/signup');
+  };
 
   // Logout Modal Component
   const LogoutModal = () => {
@@ -107,36 +127,49 @@ const Navbar = () => {
   };
 
   return (
-    <>
+    <div className="navbar-wrapper">
       {/* Logout Modal */}
       {showLogoutModal && <LogoutModal />}
 
-      {/* Mobile Menu Button */}
-      <button 
-        className="menu-btn" 
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle menu"
-      >
-        <FaBars />
-      </button>
+      {/* Mobile Header with Menu Button and Logo */}
+      <div className="mobile-header">
+        <div className="logo-container">
+          <FaStore size={24} />
+          <h2 className="site-title">My Store</h2>
+        </div>
+        
+        {/* Mobile Menu Button */}
+        <button 
+          className="menu-btn" 
+          onClick={toggleMobileMenu}
+          aria-label="Toggle menu"
+        >
+          {isOpen ? <FaTimes /> : <FaBars />}
+        </button>
+      </div>
       
       {/* Navbar Container */}
-      <div className={`navbar-container ${isOpen ? "open" : ""} ${isMinimized ? "minimized" : ""}`}>
+      <div 
+        ref={navRef}
+        className={`navbar-container ${isOpen ? "open" : ""} ${isMinimized ? "minimized" : ""} ${isMobile ? "mobile" : ""}`}
+      >
         <nav className="sidebar">
-          {/* Sidebar Header with Logo and Toggle Button */}
-          <div className="sidebar-header">
-            <div className="logo-container">
-              <FaStore size={24} />
-              <h2 className="site-title">My Store</h2>
+          {/* Sidebar Header with Logo and Toggle Button - Only visible on desktop */}
+          {!isMobile && (
+            <div className="sidebar-header">
+              <div className="logo-container">
+                <FaStore size={24} />
+                <h2 className="site-title">My Store</h2>
+              </div>
+              <button 
+                className="toggle-nav-btn"
+                onClick={toggleNavbarSize}
+                aria-label="Toggle navbar size"
+              >
+                <FaAngleDown className={isMinimized ? "rotate-icon" : ""} />
+              </button>
             </div>
-            <button 
-              className="toggle-nav-btn"
-              onClick={toggleNavbarSize}
-              aria-label="Toggle navbar size"
-            >
-              <FaAngleDown className={isMinimized ? "rotate-icon" : ""} />
-            </button>
-          </div>
+          )}
           
           <ul>
             <li>
@@ -152,7 +185,7 @@ const Navbar = () => {
               </Link>
             </li>
             <li>
-              <Link to="/list"  title="Chat">
+              <Link to="/list" className={isActive("/list")} title="Orders">
                 <FaComment /> 
                 <span className="nav-text">Orders</span>
               </Link>
@@ -185,13 +218,13 @@ const Navbar = () => {
       </div>
       
       {/* Overlay for mobile to close sidebar when clicking outside */}
-      {isOpen && window.innerWidth <= 768 && (
+      {isOpen && isMobile && (
         <div 
           className="navbar-overlay"
-          onClick={() => setIsOpen(false)}
+          onClick={toggleMobileMenu}
         />
       )}
-    </>
+    </div>
   );
 };
 

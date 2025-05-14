@@ -56,7 +56,7 @@ const Signup = () => {
         setIsRequestingOtp(true);
         
         try {
-            const response = await fetch('http://localhost:3000/api/users/request-otp', {
+            const response = await fetch('/api/users/request-otp', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
