@@ -137,7 +137,7 @@ exports.checkoutChat = asyncHandler(async (req, res) => {
         const buyerName = buyer.name || "Buyer";
 
         const totalPrice = (product.price * quantity).toFixed(2);
-        const messageText = `Hello ${sellerName}, ${buyerName} wants ${quantity}× ${product.title} for $${totalPrice}.`;
+        const messageText = `Hello ${sellerName}, ${buyerName} wants ${quantity}× ${product.title} for NGN ${totalPrice}.`;
         const threadId = [buyerId, seller._id.toString()].sort().join("_");
 
         // More flexible duplicate message check (30 second window)

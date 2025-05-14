@@ -25,6 +25,8 @@ function SellerSignup() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -49,6 +51,10 @@ function SellerSignup() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
   // Request OTP via email
   const requestEmailOTP = async () => {
     if (!formData.email) {
@@ -59,7 +65,7 @@ function SellerSignup() {
     setIsRequestingOtp(true);
     
     try {
-      const response = await fetch('http://localhost:3000/api/users/request-otp', {
+      const response = await fetch('/api/users/request-otp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,19 +196,28 @@ function SellerSignup() {
           </div>
           
           <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              className="form-control"
-              id="password"
-              name="password"
-              value={password}
-              placeholder="Enter password"
-              onChange={onChange}
-              required
-            />
+                    <label htmlFor="password">Password</label>
+                    <div className="password-input-container">
+                        <input 
+                            type={showPassword ? "text" : "password"}
+                            id="password" 
+                            name="password" 
+                            value={formData.password} 
+                            onChange={handleChange} 
+                            placeholder="Password" 
+                            className="form-control" 
+                            required 
+                        />
+                        <button 
+                            type="button" 
+                            className="password-toggle-btn"
+                            onClick={() => setShowPassword(!showPassword)}
+                        >
+                            {showPassword ? "Hide" : "Show"}
+                        </button>
+                    </div>
           </div>
-          
+
           <div className='form-group'>
             <label htmlFor='phone'>Phone Number</label>
             <input 

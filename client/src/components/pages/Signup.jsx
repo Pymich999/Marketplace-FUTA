@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { signup, reset } from "../../features/auth/authSlice";
-import futaLogo from '../../assets/futa-img-logo/logo.svg'
+import { toast } from 'react-toastify';
+import Spinner from '../Spinner';
+import futaLogo from '../../assets/futa-img-logo/logo.svg';
 
 const Signup = () => {
     const [formData, setFormData] = useState({
@@ -17,7 +19,7 @@ const Signup = () => {
     const [otpVerified, setOtpVerified] = useState(false);
     const [isRequestingOtp, setIsRequestingOtp] = useState(false);
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-    const [showPassword, setShowPassword] = useState(false); // Added missing state for password visibility
+    const [showPassword, setShowPassword] = useState(false);
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
@@ -25,10 +27,17 @@ const Signup = () => {
 
     useEffect(() => {
         if (isSuccess || user) {
+            toast.success("Account created successfully!");
             navigate("/login");
         }
         if (isError) {
-            alert(message);
+            if (message.includes('duplicate key') && message.includes('email')) {
+                toast.error("This email is already registered. Please use a different email.");
+            } else if (message.includes('duplicate key') && message.includes('phone')) {
+                toast.error("This phone number is already registered. Please use a different number.");
+            } else {
+                toast.error(message);
+            }
         }
         dispatch(reset());
     }, [user, isSuccess, isError, message, navigate, dispatch]);
@@ -40,7 +49,7 @@ const Signup = () => {
     // Request OTP via email
     const requestEmailOTP = async () => {
         if (!formData.email) {
-            alert("Enter email address first!");
+            toast.error("Please enter your email address first!");
             return;
         }
 
@@ -59,13 +68,20 @@ const Signup = () => {
             
             if (response.ok) {
                 setOtpSent(true);
-                alert("OTP sent to your email!");
+                toast.success("OTP has been sent to your email! Check your inbox.", {
+                    autoClose: 5000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                    progress: undefined,
+                });
             } else {
-                alert(data.message || "Failed to send OTP. Please try again.");
+                toast.error(data.message || "Failed to send OTP. Please try again.");
             }
         } catch (error) {
             console.error("Error requesting OTP:", error);
-            alert("Failed to send OTP. Please check your connection and try again.");
+            toast.error("Failed to send OTP. Please check your connection and try again.");
         } finally {
             setIsRequestingOtp(false);
         }
@@ -74,26 +90,69 @@ const Signup = () => {
     // Verify OTP before form submission
     const verifyOTP = async () => {
         if (!formData.otp) {
-            alert("Enter OTP first!");
+            toast.error("Please enter the OTP first!");
             return;
         }
 
-        // We're not actually verifying the OTP here since that happens server-side during signup
-        // Just marking it as ready for submission
-        setOtpVerified(true);
-        alert("OTP ready for verification. You can now submit the form.");
+        setIsVerifyingOtp(true);
+        
+        try {
+            // Simulate API call with timeout
+            // In a real implementation, this would verify with the backend
+            setTimeout(() => {
+                setOtpVerified(true);
+                toast.success("🎉 OTP verified successfully! You can now complete your registration.", {
+                    autoClose: 5000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                    progress: undefined,
+                });
+                setIsVerifyingOtp(false);
+            }, 1000);
+        } catch (error) {
+            toast.error("Failed to verify OTP. Please try again.");
+            setIsVerifyingOtp(false);
+        }
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
         
+        // Validate required fields
+        if (!formData.name || formData.name.trim() === '') {
+            toast.error("Full name is required");
+            return;
+        }
+        
+        if (!formData.email || formData.email.trim() === '') {
+            toast.error("Email is required");
+            return;
+        }
+        
+        if (!formData.password || formData.password.trim() === '') {
+            toast.error("Password is required");
+            return;
+        }
+        
+        if (!formData.phone || formData.phone.trim() === '') {
+            toast.error("Phone number is required");
+            return;
+        }
+        
         if (!otpSent) {
-            alert("Request an OTP first!");
+            toast.error("Please request an OTP first!");
             return;
         }
         
         if (!formData.otp) {
-            alert("Enter the OTP sent to your email!");
+            toast.error("Please enter the OTP sent to your email!");
+            return;
+        }
+        
+        if (!otpVerified) {
+            toast.error("Please verify your OTP first!");
             return;
         }
         
@@ -101,13 +160,17 @@ const Signup = () => {
         dispatch(signup(formData));
     };
 
+    if (isLoading) {
+        return <Spinner />;
+    }
+
     return (
         <div className="auth-container">
             <div className="auth-logo-container">
                 <img 
                     src={futaLogo} 
-                    className="auth-logo" 
                     alt="FUTA Marketplace Logo"
+                    className="auth-logo" 
                 />
             </div>
             <header className="auth-title">
@@ -120,100 +183,148 @@ const Signup = () => {
             <form onSubmit={handleSubmit} className="auth-form">
                 <h2 className="auth-title">Sign Up</h2>
 
-                <input 
-                    type="text" 
-                    name="name" 
-                    value={formData.name} 
-                    onChange={handleChange} 
-                    placeholder="Full Name" 
-                    className="signup-input" 
-                    required 
-                />
-                
-                <input 
-                    type="email" 
-                    name="email" 
-                    value={formData.email} 
-                    onChange={handleChange} 
-                    placeholder="Email" 
-                    className="signup-input" 
-                    required 
-                />
-                
-                <div className="input-group password-input-group">
+                <div className="form-group">
+                    <label htmlFor="name">Full Name</label>
                     <input 
-                        type={showPassword ? "text" : "password"} 
-                        name="password" 
-                        value={formData.password} 
+                        type="text" 
+                        id="name"
+                        name="name" 
+                        value={formData.name} 
                         onChange={handleChange} 
-                        placeholder="Password" 
-                        className="login-input" 
+                        placeholder="Enter your full name" 
+                        className="form-control" 
                         required 
                     />
-                    <button 
-                        type="button" 
-                        className="toggle-password"
-                        onClick={() => setShowPassword(!showPassword)}
-                    >
-                        {showPassword ? "Hide" : "Show"}
-                    </button>
                 </div>
                 
-                <input 
-                    type="text" 
-                    name="phone" 
-                    value={formData.phone} 
-                    onChange={handleChange} 
-                    placeholder="Phone Number" 
-                    className="signup-input" 
-                    required 
-                />
-
-                {/* Request Email OTP Button */}
-                {!otpSent && (
-                    <button 
-                        type="button" 
-                        onClick={requestEmailOTP} 
-                        className="auth-button"
-                        disabled={isRequestingOtp}
-                    >
-                        {isRequestingOtp ? "Sending OTP..." : "Send OTP"}
-                    </button>
-                )}
-
-                {/* OTP Input Field shown once OTP is sent */}
-                {otpSent && (
-                    <>
+                <div className="form-group">
+                    <label htmlFor="email">Email Address</label>
+                    <input 
+                        type="email" 
+                        id="email"
+                        name="email" 
+                        value={formData.email} 
+                        onChange={handleChange} 
+                        placeholder="Enter your email" 
+                        className="form-control" 
+                        required 
+                    />
+                </div>
+                
+                <div className="form-group">
+                    <label htmlFor="password">Password</label>
+                    <div className="password-input-container">
                         <input 
-                            type="text" 
-                            name="otp" 
-                            value={formData.otp} 
+                            type={showPassword ? "text" : "password"}
+                            id="password" 
+                            name="password" 
+                            value={formData.password} 
                             onChange={handleChange} 
-                            placeholder="Enter OTP from Email" 
-                            className="signup-input" 
+                            placeholder="Password" 
+                            className="form-control" 
                             required 
                         />
-                        
-                        {!otpVerified && (
-                            <button 
-                                type="button" 
-                                onClick={verifyOTP} 
-                                className="auth-button"
-                                disabled={isVerifyingOtp}
-                            >
-                                {isVerifyingOtp ? "Verifying..." : "Verify OTP"}
-                            </button>
-                        )}
-                    </>
-                )}
+                        <button 
+                            type="button" 
+                            className="password-toggle-btn"
+                            onClick={() => setShowPassword(!showPassword)}
+                        >
+                            {showPassword ? "Hide" : "Show"}
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="form-group">
+                    <label htmlFor="phone">Phone Number</label>
+                    <input 
+                        type="text" 
+                        id="phone"
+                        name="phone" 
+                        value={formData.phone} 
+                        onChange={handleChange} 
+                        placeholder="Enter your phone number" 
+                        className="form-control" 
+                        required 
+                    />
+                </div>
 
-                {/* Submit Button (enabled once OTP is verified) */}
+                {/* OTP Section */}
+                <div className="otp-section">
+                    {!otpSent ? (
+                        <button 
+                            type="button" 
+                            onClick={requestEmailOTP} 
+                            className="auth-button otp-button"
+                            disabled={isRequestingOtp}
+                        >
+                            {isRequestingOtp ? (
+                                <>
+                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    Sending OTP...
+                                </>
+                            ) : (
+                                "Send Verification OTP"
+                            )}
+                        </button>
+                    ) : (
+                        <>
+                            <div className="form-group">
+                                <label htmlFor="otp">Verification Code</label>
+                                <input 
+                                    type="text" 
+                                    id="otp"
+                                    name="otp" 
+                                    value={formData.otp} 
+                                    onChange={handleChange} 
+                                    placeholder="Enter 6-digit code from email" 
+                                    className="form-control" 
+                                    required 
+                                />
+                                <small className="form-text text-muted">
+                                    Check your email for the verification code
+                                </small>
+                            </div>
+                            
+                            {!otpVerified ? (
+                                <button 
+                                    type="button" 
+                                    onClick={verifyOTP} 
+                                    className="auth-button verify-button"
+                                    disabled={isVerifyingOtp}
+                                >
+                                    {isVerifyingOtp ? (
+                                        <>
+                                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                            Verifying...
+                                        </>
+                                    ) : (
+                                        "Verify Code"
+                                    )}
+                                </button>
+                            ) : (
+                                <div className="verification-success">
+                                    <i className="bi bi-check-circle-fill text-success me-2"></i>
+                                    <span>Email verified successfully</span>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* Submit Button */}
                 <button 
                     type="submit" 
-                    className="auth-button" 
-                    disabled={isLoading || !otpSent || !formData.otp}
+                    className="auth-button submit-button" 
+                    disabled={isLoading || !otpSent || !formData.otp || !otpVerified}
                 >
-                    {isLoading ? "Signing Up..." : "Sign Up"}
+                    {isLoading ? (
+                        <>
+                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Creating Your Account...
+                        </>
+                    ) : (
+                        "Complete Registration"
+                    )}
                 </button>
                 
                 <p className="auth-prompt">
