@@ -8,14 +8,12 @@ import {
   FaSignOutAlt, 
   FaSignInAlt,
   FaStore,
-  FaAngleDown,
   FaTimes,
-  FaComment,
+  FaComment
 } from "react-icons/fa";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
@@ -25,12 +23,9 @@ const Navbar = () => {
   // Handle screen resize and detect mobile view
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth <= 768;
-      setIsMobile(mobile);
-      
-      // Only auto-open on desktop
-      if (!mobile) {
-        setIsOpen(true);
+      setIsMobile(window.innerWidth <= 768);
+      if (window.innerWidth > 768) {
+        setIsOpen(false);
       }
     };
     
@@ -46,7 +41,7 @@ const Navbar = () => {
   
   // Close sidebar when route changes on mobile
   useEffect(() => {
-    if (isMobile) {
+    if (isMobile && isOpen) {
       setIsOpen(false);
     }
   }, [location, isMobile]);
@@ -68,28 +63,24 @@ const Navbar = () => {
     return location.pathname === path ? "active" : "";
   };
 
-  // Toggle navbar between expanded and minimized states
-  const toggleNavbarSize = () => {
-    setIsMinimized(!isMinimized);
-    // Dispatch an event so other components can adjust
-    window.dispatchEvent(new CustomEvent('navbarResize', { 
-      detail: { isMinimized: !isMinimized } 
-    }));
-  };
-
   // Toggle mobile menu
   const toggleMobileMenu = () => {
-    setIsOpen(!isOpen);
+    const newIsOpen = !isOpen;
+    setIsOpen(newIsOpen);
+    
+    // Dispatch event for layout to know about menu state
+    window.dispatchEvent(new CustomEvent('mobileMenuToggle', { 
+      detail: { isOpen: newIsOpen } 
+    }));
   };
 
   // Logout handler
   const handleLogout = () => {
-    console.log('Logout initiated');
+    // For demo purposes, we'll just simulate a logout
+    console.log("User logged out");
     localStorage.removeItem('user');
-    console.log('User removed from localStorage');
     setShowLogoutModal(false);
-    console.log('Navigating to login page');
-    navigate('/signup');
+    navigate('/login');
   };
 
   // Logout Modal Component
@@ -100,6 +91,7 @@ const Navbar = () => {
           <button 
             className="logout-modal-close"
             onClick={() => setShowLogoutModal(false)}
+            aria-label="Close modal"
           >
             <FaTimes />
           </button>
@@ -127,104 +119,169 @@ const Navbar = () => {
   };
 
   return (
-    <div className="navbar-wrapper">
+    <>
       {/* Logout Modal */}
       {showLogoutModal && <LogoutModal />}
 
-      {/* Mobile Header with Menu Button and Logo */}
-      <div className="mobile-header">
-        <div className="logo-container">
-          <FaStore size={24} />
-          <h2 className="site-title">My Store</h2>
-        </div>
-        
-        {/* Mobile Menu Button */}
-        <button 
-          className="menu-btn" 
-          onClick={toggleMobileMenu}
-          aria-label="Toggle menu"
-        >
-          {isOpen ? <FaTimes /> : <FaBars />}
-        </button>
-      </div>
-      
-      {/* Navbar Container */}
-      <div 
-        ref={navRef}
-        className={`navbar-container ${isOpen ? "open" : ""} ${isMinimized ? "minimized" : ""} ${isMobile ? "mobile" : ""}`}
-      >
-        <nav className="sidebar">
-          {/* Sidebar Header with Logo and Toggle Button - Only visible on desktop */}
-          {!isMobile && (
-            <div className="sidebar-header">
-              <div className="logo-container">
-                <FaStore size={24} />
-                <h2 className="site-title">My Store</h2>
-              </div>
-              <button 
-                className="toggle-nav-btn"
-                onClick={toggleNavbarSize}
-                aria-label="Toggle navbar size"
-              >
-                <FaAngleDown className={isMinimized ? "rotate-icon" : ""} />
-              </button>
+      {/* Main Header - Desktop Only */}
+      {!isMobile && (
+        <header className="main-header">
+          <div className="top-bar">
+            <div className="logo-container">
+              <Link to="/" className="logo-link">
+                <FaStore className="logo-icon" />
+                <span className="logo-text">FUTA Marketplace</span>
+              </Link>
             </div>
-          )}
+
+            {/* Navigation Controls - Right side */}
+            <div className="nav-controls">
+              {/* Desktop Navigation Links */}
+              <nav className="desktop-nav">
+                <Link to="/" className={`nav-link ${isActive("/")}`}>
+                  <FaHome />
+                  <span>Home</span>
+                </Link>
+                <Link to="/cart" className={`nav-link ${isActive("/cart")}`}>
+                  <FaShoppingCart />
+                  <span>Cart</span>
+                </Link>
+                <Link to="/list" className={`nav-link ${isActive("/orders")}`}>
+                  <FaComment />
+                  <span>Orders</span>
+                </Link>
+                <Link to="/login" className={`nav-link ${isActive("/login")}`}>
+                  <FaSignInAlt />
+                  <span>Login</span>
+                </Link>
+                <Link to="/signup" className={`nav-link ${isActive("/signup")}`}>
+                  <FaUser />
+                  <span>Signup</span>
+                </Link>
+                <button 
+              className={`bottom-nav-item`}
+              onClick={() => setShowLogoutModal(true)}
+            >
+              <FaSignOutAlt />
+              <span>Logout</span>
+            </button>
+              </nav>
+            </div>
+          </div>
+        </header>
+      )}
+
+      {/* Bottom Navigation - Mobile */}
+      {isMobile && (
+        <header className="mobile-header">
+          <div className="mobile-logo-bar">
+            <Link to="/" className="mobile-logo-link">
+              <FaStore className="logo-icon" />
+              <span className="logo-text">FUTA Marketplace</span>
+            </Link>
+            <button 
+              className="menu-toggle"
+              onClick={toggleMobileMenu}
+              aria-label="Toggle menu"
+            >
+              {isOpen ? <FaTimes /> : <FaBars />}
+            </button>
+          </div>
           
-          <ul>
+          <nav className="bottom-nav">
+            <Link to="/" className={`bottom-nav-item ${isActive("/")}`}>
+              <FaHome />
+              <span>Home</span>
+            </Link>
+            <Link to="/cart" className={`bottom-nav-item ${isActive("/cart")}`}>
+              <FaShoppingCart />
+              <span>Cart</span>
+            </Link>
+            <Link to="/list" className={`bottom-nav-item ${isActive("/orders")}`}>
+              <FaComment />
+              <span>Orders</span>
+            </Link>
+            <Link to="/login" className={`bottom-nav-item ${isActive("/login")}`}>
+              <FaSignInAlt />
+              <span>Login</span>
+            </Link>
+          </nav>
+        </header>
+      )}
+
+      {/* Side Navigation - Shows as dropdown on mobile */}
+      <aside 
+        ref={navRef}
+        className={`side-nav ${isOpen ? "open" : ""}`}
+      >
+        <div className="side-nav-content">
+          <div className="side-nav-header">
+            <h3>Menu</h3>
+            <button 
+              className="close-nav" 
+              onClick={toggleMobileMenu}
+              aria-label="Close menu"
+            >
+              <FaTimes />
+            </button>
+          </div>
+
+          <ul className="side-nav-menu">
             <li>
-              <Link to="/" className={isActive("/")} title="Home">
+              <Link to="/" className={isActive("/")} onClick={toggleMobileMenu}>
                 <FaHome /> 
-                <span className="nav-text">Home</span>
+                <span>Home</span>
               </Link>
             </li>
             <li>
-              <Link to="/cart" className={isActive("/cart")} title="Cart">
+              <Link to="/cart" className={isActive("/cart")} onClick={toggleMobileMenu}>
                 <FaShoppingCart /> 
-                <span className="nav-text">Cart</span>
+                <span>Cart</span>
               </Link>
             </li>
             <li>
-              <Link to="/list" className={isActive("/list")} title="Orders">
+              <Link to="/list" className={isActive("/orders")} onClick={toggleMobileMenu}>
                 <FaComment /> 
-                <span className="nav-text">Orders</span>
+                <span>Orders</span>
               </Link>
             </li>
             <li>
-              <Link to="/login" className={isActive("/login")} title="Login">
+              <Link to="/login" className={isActive("/login")} onClick={toggleMobileMenu}>
                 <FaSignInAlt /> 
-                <span className="nav-text">Login</span>
+                <span>Login</span>
               </Link>
             </li>
             <li>
-              <Link to="/signup" className={isActive("/signup")} title="Sign Up">
+              <Link to="/signup" className={isActive("/signup")} onClick={toggleMobileMenu}>
                 <FaUser /> 
-                <span className="nav-text">Sign Up</span>
+                <span>Sign Up</span>
               </Link>
             </li>
             <li>
-              {/* Change to button to trigger modal instead of link */}
               <button 
-                onClick={() => setShowLogoutModal(true)} 
+                onClick={() => {
+                  setShowLogoutModal(true);
+                  toggleMobileMenu();
+                }}
                 className="logout-button"
-                title="Logout"
               >
                 <FaSignOutAlt /> 
-                <span className="nav-text">Logout</span>
+                <span>Logout</span>
               </button>
             </li>
           </ul>
-        </nav>
-      </div>
+        </div>
+      </aside>
       
       {/* Overlay for mobile to close sidebar when clicking outside */}
-      {isOpen && isMobile && (
+      {isOpen && (
         <div 
-          className="navbar-overlay"
+          className="side-nav-overlay visible"
           onClick={toggleMobileMenu}
+          aria-hidden="true"
         />
       )}
-    </div>
+    </>
   );
 };
 

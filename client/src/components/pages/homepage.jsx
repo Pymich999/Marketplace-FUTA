@@ -6,14 +6,11 @@ import {
   FaComment,
   FaArrowLeft,
   FaStar,
-  FaHeart,
-  FaShare,
   FaChevronLeft,
   FaChevronRight,
   FaStore,
   FaFilter,
   FaTimes,
-  FaAngleDown,
   FaCheck,
   FaBell,
   FaCheckCircle
@@ -190,7 +187,7 @@ const HomePage = () => {
     const payload = {
       cartItems: [{
         productId: product._id,
-        quantity: 1 // Default to 1 for direct order
+        quantity: quantity || 1 // Use selected quantity or default to 1
       }],
       buyerId: user._id || user.id,
       attemptId
@@ -235,7 +232,6 @@ const HomePage = () => {
       setOrderProgress('idle');
     }
   }, 1000, { leading: true, trailing: false });
-
 
   const handleProductClick = (product) => {
     setSelectedProduct(product);
@@ -291,6 +287,39 @@ const HomePage = () => {
   // Handle filter toggle on mobile
   const toggleFilterMenu = () => {
     setIsFilterMenuOpen(!isFilterMenuOpen);
+  };
+
+  // Get related products or just random products if no matches
+  const getRelatedProducts = () => {
+    if (!selectedProduct) return [];
+    
+    // First try to get products in the same category
+    const relatedProducts = products.filter(
+      (p) =>
+        p._id !== selectedProduct._id &&
+        (p.category || "")
+          .split(",")
+          .some((cat) =>
+            (selectedProduct.category || "").includes(cat.trim())
+          )
+    );
+    
+    // If we don't have enough related products, add some random ones
+    if (relatedProducts.length < 4) {
+      const randomProducts = products
+        .filter(p => 
+          p._id !== selectedProduct._id && 
+          !relatedProducts.some(rp => rp._id === p._id)
+        )
+        .sort(() => 0.5 - Math.random()); // Shuffle
+      
+      // Add random products until we have 4 or run out of products
+      while (relatedProducts.length < 4 && randomProducts.length > 0) {
+        relatedProducts.push(randomProducts.pop());
+      }
+    }
+    
+    return relatedProducts.slice(0, 4);
   };
 
   // Header with logo and cart/seller action
@@ -468,18 +497,24 @@ const HomePage = () => {
                       : "Add to Cart"}
                   </button>
 
-                  <button className="buy-now-button">Buy Now</button>
+                  <button 
+                    className={`order-now-button ${
+                      orderProgress !== 'idle' && orderingProduct?._id === selectedProduct._id ? 'loading' : ''
+                    }`}
+                    onClick={() => handleDirectOrder(selectedProduct)}
+                    disabled={
+                      orderProgress !== 'idle' ||
+                      addingToCart[selectedProduct._id] ||
+                      cartLoading ||
+                      selectedProduct.stock <= 0
+                    }
+                  >
+                    Order Now
+                  </button>
                 </div>
               </div>
 
-              <div className="product-detail-extra-actions">
-                <button className="wishlist-button">
-                  <FaHeart /> Add to Wishlist
-                </button>
-                <button className="share-button">
-                  <FaShare /> Share
-                </button>
-              </div>
+              {/* Removed wishlist and share buttons as requested */}
             </div>
           </div>
 
@@ -506,28 +541,17 @@ const HomePage = () => {
           <div className="related-products">
             <h2>You May Also Like</h2>
             <div className="related-products-grid">
-              {products
-                .filter(
-                  (p) =>
-                    p._id !== selectedProduct._id &&
-                    (p.category || "")
-                      .split(",")
-                      .some((cat) =>
-                        (selectedProduct.category || "").includes(cat.trim())
-                      )
-                )
-                .slice(0, 4)
-                .map((product) => (
-                  <div key={product._id} className="related-product-card">
-                    <img
-                      src={product.images && product.images[0]}
-                      alt={product.title}
-                      onClick={() => handleProductClick(product)}
-                    />
-                    <h3>{product.title}</h3>
-                    <p className="price">{formatPrice(product.price)}</p>
-                  </div>
-                ))}
+              {getRelatedProducts().map((product) => (
+                <div key={product._id} className="related-product-card">
+                  <img
+                    src={product.images && product.images[0]}
+                    alt={product.title}
+                    onClick={() => handleProductClick(product)}
+                  />
+                  <h3>{product.title}</h3>
+                  <p className="price">{formatPrice(product.price)}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -799,21 +823,20 @@ const HomePage = () => {
                           View Details
                         </button>
 
-                        {/* New Order Now button */}
-              <button
-                className={`order-now-button ${
-                  orderProgress !== 'idle' && orderingProduct?._id === product._id ? 'loading' : ''
-                }`}
-                onClick={() => handleDirectOrder(product)}
-                disabled={
-                  orderProgress !== 'idle' ||
-                  addingToCart[product._id] ||
-                  cartLoading ||
-                  product.stock <= 0
-                }
-              >
-                Order Now
-              </button>
+                        <button
+                          className={`order-now-button ${
+                            orderProgress !== 'idle' && orderingProduct?._id === product._id ? 'loading' : ''
+                          }`}
+                          onClick={() => handleDirectOrder(product)}
+                          disabled={
+                            orderProgress !== 'idle' ||
+                            addingToCart[product._id] ||
+                            cartLoading ||
+                            product.stock <= 0
+                          }
+                        >
+                          Order Now
+                        </button>
 
                         <button
                           className={`quick-add-button ${

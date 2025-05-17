@@ -20,27 +20,44 @@ const Signup = () => {
     const [isRequestingOtp, setIsRequestingOtp] = useState(false);
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [formSubmitted, setFormSubmitted] = useState(false);
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const { user, isLoading, isSuccess, isError, message } = useSelector((state) => state.auth);
 
+    // This effect handles auth state changes after form submission
     useEffect(() => {
-        if (isSuccess || user) {
-            toast.success("Account created successfully!");
-            navigate("/login");
-        }
-        if (isError) {
-            if (message.includes('duplicate key') && message.includes('email')) {
-                toast.error("This email is already registered. Please use a different email.");
-            } else if (message.includes('duplicate key') && message.includes('phone')) {
-                toast.error("This phone number is already registered. Please use a different number.");
-            } else {
-                toast.error(message);
+        // Only process auth state changes if the form was actually submitted
+        if (formSubmitted) {
+            if (isSuccess) {
+                toast.success("Account created successfully!");
+                navigate("/login");
+                setFormSubmitted(false);
+            }
+            
+            if (isError) {
+                if (message.includes('duplicate key') && message.includes('email')) {
+                    toast.error("This email is already registered. Please use a different email.");
+                } else if (message.includes('duplicate key') && message.includes('phone')) {
+                    toast.error("This phone number is already registered. Please use a different number.");
+                } else {
+                    toast.error(message);
+                }
+                setFormSubmitted(false);
             }
         }
+        
+        // Always reset auth state after processing
         dispatch(reset());
-    }, [user, isSuccess, isError, message, navigate, dispatch]);
+    }, [isSuccess, isError, message, navigate, dispatch, formSubmitted]);
+
+    // Effect to redirect if user is already logged in
+    useEffect(() => {
+        if (user) {
+            navigate('/dashboard');
+        }
+    }, [user, navigate]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -155,6 +172,9 @@ const Signup = () => {
             toast.error("Please verify your OTP first!");
             return;
         }
+        
+        // Set flag that form was submitted before dispatching action
+        setFormSubmitted(true);
         
         // Send the entire form data including OTP to the server
         dispatch(signup(formData));
