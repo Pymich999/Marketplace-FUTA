@@ -1347,6 +1347,15 @@ textarea.form-control {
   flex: 1;
 }
 
+.btn-add-product {
+  padding: 8px 16px;
+  background-color: #008000;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 /* Overview Tab */
 .overview-tab .stats-cards {
   display: grid;

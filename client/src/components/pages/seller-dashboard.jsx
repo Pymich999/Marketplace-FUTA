@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { uploadImage } from '../../utils/imageUpload';
-import {FaComment} from "react-icons/fa";
+import {FaComment, FaPlus, FaTrash, FaCopy} from "react-icons/fa";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import BulkProductUploader from './bulk-Upload'; // Import the BulkProductUploader component
 
 const SellerDashboard = () => {
   // Fixed categories array
@@ -59,6 +60,9 @@ const SellerDashboard = () => {
   
   // Selected product for editing
   const [selectedProduct, setSelectedProduct] = useState(null);
+  
+  // State for bulk upload mode
+  const [bulkUploadMode, setBulkUploadMode] = useState(false);
   
   // Show notification function
   const showNotification = (message, type = 'info') => {
@@ -212,140 +216,140 @@ const SellerDashboard = () => {
     });
   };
 
-  const handleProductSubmit = async (e) => {
-    e.preventDefault();
-    setIsUploading(true);
-    setError(null);
+const handleProductSubmit = async (e) => {
+  e.preventDefault();
+  setIsUploading(true);
+  setError(null);
 
-    try {
-      const user = JSON.parse(localStorage.getItem('user')) || {};
-      if (!user.token) {
-        throw new Error('Authentication required');
-      }
-
-      // Validate category selection
-      if (!newProduct.category) {
-        throw new Error('Please select a category');
-      }
-
-      const files = Array.from(newProduct.images || []);
-      const existingImagesArray = newProduct.existingImages || [];
-      
-      // Check if we have any files to upload or existing images to keep
-      const hasNewImages = files.length > 0;
-      const hasExistingImages = existingImagesArray.some(url => url !== null && url !== undefined);
-      
-      // Only validate images if there are no existing images being kept
-      if (!hasNewImages && !hasExistingImages) {
-        throw new Error('At least one image is required');
-      }
-      
-      // Validate new image files if any
-      if (hasNewImages) {
-        const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-        if (files.some(file => !validTypes.includes(file.type))) {
-          throw new Error('Only JPG, PNG, or WEBP images are allowed');
-        }
-      }
-
-      // Upload new images if any
-      let imageUrls = [];
-      
-      if (hasNewImages) {
-        const uploadPromises = files.map(async (file, index) => {
-          const result = await uploadImage(file);
-          setUploadProgress(Math.round(((index + 1) / files.length) * 100));
-          return result.secure_url;
-        });
-        
-        const newImageUrls = await Promise.all(uploadPromises);
-        imageUrls = [...newImageUrls];
-      }
-      
-      // Merge with kept existing images
-      if (hasExistingImages) {
-        // Filter out null values and add existing images that we're keeping
-        imageUrls = [...imageUrls, ...existingImagesArray.filter(url => url !== null && url !== undefined)];
-      }
-
-      const productData = {
-        title: newProduct.title.trim(),
-        description: newProduct.description.trim(),
-        price: parseFloat(newProduct.price),
-        category: newProduct.category.trim(),
-        stock: parseInt(newProduct.stock, 10),
-        images: imageUrls
-      };
-
-      if (isNaN(productData.price) || productData.price <= 0) {
-        throw new Error('Price must be a positive number');
-      }
-      if (isNaN(productData.stock) || productData.stock < 0) {
-        throw new Error('Stock cannot be negative');
-      }
-
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`
-        }
-      };
-
-      let response;
-      if (selectedProduct) {
-        response = await axios.put(
-          `/api/products/${selectedProduct._id}`,
-          productData,
-          config
-        );
-        setProducts(products.map(p => 
-          p._id === selectedProduct._id ? response.data : p
-        ));
-        
-        showNotification('Product updated successfully!', 'success');
-      } else {
-        response = await axios.post(
-          '/api/products',
-          productData,
-          config
-        );
-        setProducts([...products, response.data]);
-        
-        showNotification('Product added successfully!', 'success');
-      }
-
-      // Reset form
-      setNewProduct({
-        title: '',
-        description: '',
-        price: '',
-        category: '',
-        stock: '',
-        images: [],
-        existingImages: []
-      });
-      setImagePreviews([null, null, null]);
-      setSelectedProduct(null);
-      
-      // Navigate back to products tab
-      setActiveTab('products');
-
-    } catch (err) {
-      let errorMessage = 'An unexpected error occurred';
-      if (err.response) {
-        errorMessage = err.response.data?.message || err.response.statusText;
-      } else if (err.request) {
-        errorMessage = 'Network error - please check your connection';
-      } else {
-        errorMessage = err.message;
-      }
-      setError(`Operation failed: ${errorMessage}`);
-      showNotification(`Operation failed: ${errorMessage}`, 'error');
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+  try {
+    const user = JSON.parse(localStorage.getItem('user')) || {};
+    if (!user.token) {
+      throw new Error('Authentication required');
     }
-  };
+
+    // Validate category selection
+    if (!newProduct.category) {
+      throw new Error('Please select a category');
+    }
+
+    const files = Array.from(newProduct.images || []);
+    const existingImagesArray = newProduct.existingImages || [];
+    
+    // Check if we have any files to upload or existing images to keep
+    const hasNewImages = files.length > 0;
+    const hasExistingImages = existingImagesArray.some(url => url !== null && url !== undefined);
+    
+    // Only validate images if there are no existing images being kept
+    if (!hasNewImages && !hasExistingImages) {
+      throw new Error('At least one image is required');
+    }
+    
+    // Validate new image files if any
+    if (hasNewImages) {
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
+      if (files.some(file => !validTypes.includes(file.type))) {
+        throw new Error('Only JPG, PNG, WEBP, or AVIF images are allowed');
+      }
+    }
+
+    // Upload new images if any
+    let imageUrls = [];
+    
+    if (hasNewImages) {
+      const uploadPromises = files.map(async (file, index) => {
+        const result = await uploadImage(file);
+        setUploadProgress(Math.round(((index + 1) / files.length) * 100));
+        return result.secure_url;
+      });
+      
+      const newImageUrls = await Promise.all(uploadPromises);
+      imageUrls = [...newImageUrls];
+    }
+    
+    // Merge with kept existing images
+    if (hasExistingImages) {
+      // Filter out null values and add existing images that we're keeping
+      imageUrls = [...imageUrls, ...existingImagesArray.filter(url => url !== null && url !== undefined)];
+    }
+
+    const productData = {
+      title: newProduct.title.trim(),
+      description: newProduct.description.trim(),
+      price: parseFloat(newProduct.price),
+      category: newProduct.category.trim(),
+      stock: parseInt(newProduct.stock, 10),
+      images: imageUrls
+    };
+
+    if (isNaN(productData.price) || productData.price <= 0) {
+      throw new Error('Price must be a positive number');
+    }
+    if (isNaN(productData.stock) || productData.stock < 0) {
+      throw new Error('Stock cannot be negative');
+    }
+
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user.token}`
+      }
+    };
+
+    let response;
+    if (selectedProduct) {
+      response = await axios.put(
+        `/api/products/${selectedProduct._id}`,
+        productData,
+        config
+      );
+      setProducts(products.map(p => 
+        p._id === selectedProduct._id ? response.data : p
+      ));
+      
+      showNotification('Product updated successfully!', 'success');
+    } else {
+      response = await axios.post(
+        '/api/products',
+        productData,
+        config
+      );
+      setProducts([...products, response.data]);
+      
+      showNotification('Product added successfully!', 'success');
+    }
+
+    // Reset form
+    setNewProduct({
+      title: '',
+      description: '',
+      price: '',
+      category: '',
+      stock: '',
+      images: [],
+      existingImages: []
+    });
+    setImagePreviews([null, null, null]);
+    setSelectedProduct(null);
+    
+    // Navigate back to products tab
+    setActiveTab('products');
+
+  } catch (err) {
+    let errorMessage = 'An unexpected error occurred';
+    if (err.response) {
+      errorMessage = err.response.data?.message || err.response.statusText;
+    } else if (err.request) {
+      errorMessage = 'Network error - please check your connection';
+    } else {
+      errorMessage = err.message;
+    }
+    setError(`Operation failed: ${errorMessage}`);
+    showNotification(`Operation failed: ${errorMessage}`, 'error');
+  } finally {
+    setIsUploading(false);
+    setUploadProgress(0);
+  }
+};
 
   const deleteProduct = async (productId) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
@@ -366,6 +370,28 @@ const SellerDashboard = () => {
       style: 'currency',
       currency: 'NGN'
     }).format(amount);
+  };
+
+  // Handle bulk upload completion
+  const handleBulkUploadComplete = () => {
+    setBulkUploadMode(false);
+    
+    // Refresh the products list
+    const fetchProducts = async () => {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user'));
+        if (userData && userData.token) {
+          const productsResponse = await axios.get('/api/products/seller');
+          setProducts(productsResponse.data);
+          calculateStats(productsResponse.data);
+        }
+      } catch (err) {
+        console.error('Failed to refresh products:', err);
+        showNotification('Failed to refresh product list', 'error');
+      }
+    };
+    
+    fetchProducts();
   };
 
   if (isLoading) return <div className="loading">Loading dashboard...</div>;
@@ -519,9 +545,21 @@ const SellerDashboard = () => {
               </li>
               <li 
                 className={activeTab === 'add-product' ? 'active' : ''} 
-                onClick={() => setActiveTab('add-product')}
+                onClick={() => {
+                  setActiveTab('add-product');
+                  setBulkUploadMode(false);
+                }}
               >
                 Add Product
+              </li>
+              <li 
+                className={activeTab === 'bulk-upload' ? 'active' : ''} 
+                onClick={() => {
+                  setActiveTab('bulk-upload');
+                  setBulkUploadMode(true);
+                }}
+              >
+                Bulk Upload
               </li>
             </ul>
           </nav>
@@ -626,6 +664,7 @@ const SellerDashboard = () => {
                             setImagePreviews(newPreviews);
                             
                             setActiveTab('add-product');
+                            setBulkUploadMode(false);
                           }}
                         >
                           Edit
@@ -648,7 +687,7 @@ const SellerDashboard = () => {
             </div>
           )}
           
-          {activeTab === 'add-product' && (
+          {activeTab === 'add-product' && !bulkUploadMode && (
             <div className="add-product-tab">
               <h2>{selectedProduct ? 'Edit Product' : 'Add New Product'}</h2>
 
@@ -731,7 +770,7 @@ const SellerDashboard = () => {
                 <div className="form-group">
                   <label>Product Images* {selectedProduct ? '(Keep empty to use existing images)' : ''}</label>
                   <div className="modern-image-upload">
-                    {[0, 1, 2].map((index) => (
+                    {[0, 1, 2, 3].map((index) => (
                       <div key={`image-upload-${index}`} className="image-upload-container">
                         {imagePreviews[index] ? (
                           <div className="image-preview">
@@ -799,6 +838,17 @@ const SellerDashboard = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+          
+          {/* Bulk Upload Tab */}
+          {activeTab === 'bulk-upload' && (
+            <div className="bulk-upload-tab">
+              <BulkProductUploader 
+                onComplete={handleBulkUploadComplete}
+                showNotification={showNotification}
+                categories={FIXED_CATEGORIES}
+              />
             </div>
           )}
         </div>
