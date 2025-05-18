@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { uploadImage } from '../../utils/imageUpload';
-import {FaComment, FaPlus, FaTrash, FaCopy} from "react-icons/fa";
+import { 
+  FaHome, 
+  FaBox, 
+  FaComment, 
+  FaPlus, 
+  FaCopy,
+  FaChartLine,
+  FaShoppingCart,
+  FaSignOutAlt
+} from "react-icons/fa";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import BulkProductUploader from './bulk-Upload'; // Import the BulkProductUploader component
 
@@ -853,7 +862,56 @@ const handleProductSubmit = async (e) => {
           )}
         </div>
       </div>
-    </div>
+
+  {/* Mobile Bottom Navigation */}
+      <div className="bottom-navigation">
+        <div className="bottom-nav-items">
+          <div 
+            className={`bottom-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            <FaChartLine className="bottom-nav-icon" />
+            <span>Overview</span>
+          </div>
+
+          <div 
+            className={`bottom-nav-item ${activeTab === 'products' ? 'active' : ''}`}
+            onClick={() => setActiveTab('products')}
+          >
+            <FaBox className="bottom-nav-icon" />
+            <span>Products</span>
+          </div>
+
+          <div 
+            className={`bottom-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={handleOrdersClick}
+          >
+            <FaShoppingCart className="bottom-nav-icon" />
+            <span>Orders</span>
+          </div>
+
+          <div 
+            className={`bottom-nav-item ${activeTab === 'add-product' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('add-product');
+              setBulkUploadMode(false);
+            }}
+          >
+            <FaPlus className="bottom-nav-icon" />
+            <span>Add</span>
+          </div>
+
+          {/* Logout Button in Mobile Nav */}
+          <div 
+            className="bottom-nav-item"
+            onClick={() => setShowLogoutModal(true)}
+          >
+            <FaSignOutAlt className="bottom-nav-icon" />
+            <span>Logout</span>
+          </div>
+        </div>
+      </div>
+</div>
   );
 };
 
