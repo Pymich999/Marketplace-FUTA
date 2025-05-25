@@ -12,6 +12,7 @@ import SellerDashboard from "./components/pages/seller-dashboard";
 import Cart from './components/pages/cart';
 import Chatpage from './components/pages/Chatpage'
 import Chatlist from './components/pages/Chatlist'
+import Profile from './components/pages/profilepage'
 
 function App() {
   return (
@@ -42,6 +43,8 @@ function App() {
         <Route path="/seller-signup" element={<SellerSignup />} />
         <Route path="/seller-dashboard" element={<SellerDashboard />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/:userId" element={<Profile />} />
         {/* Updated chat routes */}
         <Route path="/chats" element={<Chatlist />} />
         <Route path="/chats/:threadId" element={<Chatpage />} />

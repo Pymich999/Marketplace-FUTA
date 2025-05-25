@@ -26,25 +26,32 @@ const Login = () => {
 
     const { user, isLoading, isSuccess, isError, message } = useSelector((state) => state.auth);
 
-    useEffect(() => {
-        if (isSuccess && user) {
-            // Redirect based on user role
-            if (user.role === "seller") {
-                navigate("/seller-dashboard");
-            } else if(user.role === "admin"){
-                navigate("/admin")
-            } else if(user.role === "seller_pending"){
-                navigate("/seller-dashboard")
-            } else {
-                // Default to home page for buyers and other roles
-                navigate("/");
-            }
+// Also add logging to useEffect
+useEffect(() => {
+    console.log('Auth state changed:', { user, isLoading, isSuccess, isError, message });
+    
+    if (isSuccess && user) {
+        console.log('Login successful, redirecting...', user.role);
+        // Redirect based on user role
+        if (user.role === "seller") {
+            navigate("/seller-dashboard");
+        } else if(user.role === "admin"){
+            navigate("/admin")
+        } else if(user.role === "seller_pending"){
+            navigate("/seller-dashboard")
+        } else {
+            navigate("/");
         }
+    }
 
-        return () => {
-            dispatch(reset());
-        };
-    }, [user, isSuccess, navigate, dispatch]);
+    if (isError) {
+        console.error('Login error:', message);
+    }
+
+    return () => {
+        dispatch(reset());
+    };
+}, [user, isSuccess, isError, message, navigate, dispatch]);
     
     // Timer for OTP resend
     useEffect(() => {
@@ -62,9 +69,24 @@ const Login = () => {
     };
 
     const handleLogin = (e) => {
-        e.preventDefault();
+    e.preventDefault();
+    console.log('Login button clicked');
+    console.log('Form data:', formData);
+    console.log('Is loading:', isLoading);
+    
+    // Add validation
+    if (!formData.email || !formData.password) {
+        console.error('Email or password missing');
+        return;
+    }
+    
+    try {
         dispatch(login(formData));
-    };
+        console.log('Login dispatched successfully');
+    } catch (error) {
+        console.error('Error dispatching login:', error);
+    }
+};
 
     const handleForgotPassword = (e) => {
         e.preventDefault();

@@ -520,14 +520,15 @@ const handleProductSubmit = async (e) => {
       )}
       
       <header className="dashboard-header">
-        <h1>Futa Marketplace - Seller Dashboard</h1>
-        <button 
-          className="btn-logout"
-          onClick={() => setShowLogoutModal(true)}
-        >
-          Logout
-        </button>
-      </header>
+  <h1>Futa Marketplace - Seller Dashboard</h1>
+  <button 
+    className="btn-logout"
+    onClick={() => setShowLogoutModal(true)}
+  >
+    <FaSignOutAlt className="logout-icon" />
+    <span className="logout-text">Logout</span>
+  </button>
+</header>
       
       <div className="dashboard-content">
         <div className="dashboard-sidebar">
@@ -864,53 +865,56 @@ const handleProductSubmit = async (e) => {
       </div>
 
   {/* Mobile Bottom Navigation */}
-      <div className="bottom-navigation">
-        <div className="bottom-nav-items">
-          <div 
-            className={`bottom-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            <FaChartLine className="bottom-nav-icon" />
-            <span>Overview</span>
-          </div>
+<div className="bottom-navigation">
+  <div className="bottom-nav-items">
+    <div 
+      className={`bottom-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+      onClick={() => setActiveTab('overview')}
+    >
+      <FaChartLine className="bottom-nav-icon" />
+      <span>Overview</span>
+    </div>
 
-          <div 
-            className={`bottom-nav-item ${activeTab === 'products' ? 'active' : ''}`}
-            onClick={() => setActiveTab('products')}
-          >
-            <FaBox className="bottom-nav-icon" />
-            <span>Products</span>
-          </div>
+    <div 
+      className={`bottom-nav-item ${activeTab === 'products' ? 'active' : ''}`}
+      onClick={() => setActiveTab('products')}
+    >
+      <FaBox className="bottom-nav-icon" />
+      <span>Products</span>
+    </div>
 
-          <div 
-            className={`bottom-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={handleOrdersClick}
-          >
-            <FaShoppingCart className="bottom-nav-icon" />
-            <span>Orders</span>
-          </div>
+    <div 
+      className={`bottom-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
+      onClick={handleOrdersClick}
+    >
+      <FaShoppingCart className="bottom-nav-icon" />
+      <span>Orders</span>
+    </div>
 
-          <div 
-            className={`bottom-nav-item ${activeTab === 'add-product' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('add-product');
-              setBulkUploadMode(false);
-            }}
-          >
-            <FaPlus className="bottom-nav-icon" />
-            <span>Add</span>
-          </div>
+    <div 
+      className={`bottom-nav-item ${activeTab === 'add-product' ? 'active' : ''}`}
+      onClick={() => {
+        setActiveTab('add-product');
+        setBulkUploadMode(false);
+      }}
+    >
+      <FaPlus className="bottom-nav-icon" />
+      <span>Add</span>
+    </div>
 
-          {/* Logout Button in Mobile Nav */}
-          <div 
-            className="bottom-nav-item"
-            onClick={() => setShowLogoutModal(true)}
-          >
-            <FaSignOutAlt className="bottom-nav-icon" />
-            <span>Logout</span>
-          </div>
-        </div>
-      </div>
+    {/* Bulk Upload Mobile Nav Item */}
+    <div 
+      className={`bottom-nav-item ${activeTab === 'bulk-upload' ? 'active' : ''}`}
+      onClick={() => {
+        setActiveTab('bulk-upload');
+        setBulkUploadMode(true);
+      }}
+    >
+      <FaCopy className="bottom-nav-icon" />
+      <span>Bulk</span>
+    </div>
+  </div>
+</div>
 </div>
   );
 };

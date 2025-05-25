@@ -9,7 +9,7 @@ connectDB();
 const app = express();
 
 app.use(cors({
-    origin: 'http://localhost:5173', // Allow requests from your frontend
+    origin: true,  // Allows all origins
     credentials: true, 
 }));
 
@@ -22,6 +22,7 @@ app.use('/api/products', require('./routes/ProductRoutes'))
 app.use('/api/order', require('./routes/orderRoutes'))
 app.use('/api/cart', require('./routes/cartRoutes'))
 app.use('/api/chats', require('./routes/chatRoutes'));
+app.use('/api/profile', require('./routes/Profileroutes'))
 
 app.use(errorHandler);
 

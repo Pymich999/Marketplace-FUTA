@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3000/api/users/';
+const API_URL = 'http://192.168.66.32:3000/api/users/';
 
 const signup = async (userData) => {
 	const response = await axios.post(API_URL, userData);
@@ -13,7 +13,7 @@ const signup = async (userData) => {
 };
 
 const login = async (userData) => {
-	const response = await axios.post("http://localhost:3000/api/users/login" , userData)
+	const response = await axios.post("http://192.168.66.32:3000/api/users/login" , userData)
 
 	if (response.data) {
 		localStorage.setItem('user', JSON.stringify(response.data))

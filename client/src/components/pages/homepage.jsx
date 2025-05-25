@@ -13,7 +13,8 @@ import {
   FaTimes,
   FaCheck,
   FaBell,
-  FaCheckCircle
+  FaCheckCircle,
+  FaUser
 } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "../../features/cart/cartSlice";
@@ -263,6 +264,29 @@ const HomePage = () => {
     }
   };
 
+  const handleViewSellerProfile = () => {
+    if (selectedProduct) {
+      // Check multiple possible locations for seller ID based on API structure
+      const sellerId = selectedProduct.sellerId || 
+                      (selectedProduct.seller && selectedProduct.seller._id) ||
+                      selectedProduct.userId;
+                      
+      if (sellerId) {
+        // Add viewAsSeller=true query parameter to show dashboard
+        navigate(`/profile/${sellerId}?viewAsSeller=true`);
+      } else {
+        alert("Seller information is not available for this product");
+        console.error("No seller ID found in product data:", {
+          selectedProduct,
+          availableFields: Object.keys(selectedProduct)
+        });
+      }
+    } else {
+      alert("Product information is not available");
+      console.error("selectedProduct is null or undefined");
+    }
+  };
+  
   const showNotification = (message, type) => {
     const notification = document.createElement("div");
     notification.className = `notification ${type}`;
@@ -514,7 +538,16 @@ const HomePage = () => {
                 </div>
               </div>
 
-              {/* Removed wishlist and share buttons as requested */}
+              {/* New Seller Profile Button */}
+              <div className="seller-profile-section">
+                <button 
+                  className="seller-profile-button"
+                  onClick={handleViewSellerProfile}
+                >
+                  <FaUser /> Checkout Seller Profile
+                </button>
+                <p className="seller-note">See more products from this seller</p>
+              </div>
             </div>
           </div>
 
@@ -555,11 +588,47 @@ const HomePage = () => {
             </div>
           </div>
         </div>
+
+        {/* Additional CSS for the new seller profile button */}
+        <style jsx>{`
+          .seller-profile-section {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+          }
+          
+          .seller-profile-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 12px 16px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-weight: 500;
+            color: #212529;
+            transition: all 0.2s ease;
+            cursor: pointer;
+          }
+          
+          .seller-profile-button:hover {
+            background-color: #e9ecef;
+          }
+          
+          .seller-note {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #6c757d;
+          }
+        `}</style>
       </>
     );
   }
 
-   const renderOrderProgressSlider = () => {
+  const renderOrderProgressSlider = () => {
     if (orderProgress === 'idle' || !orderingProduct) {
       return null;
     }
@@ -657,7 +726,6 @@ const HomePage = () => {
       </div>
     );
   };
-
 
   return (
     <>
