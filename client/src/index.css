@@ -8,9 +8,9 @@
 
 :root {
    /* Primary Colors - Orange with Purple/Blue Tints */
-  --primary: #e67e22;           /* Orange primary */
-  --primary-light: #f39c12;     /* Lighter orange */
-  --primary-dark: #d35400;      /* Deeper orange */
+  --primary: #4b0082;           /* Orange primary */
+  --primary-light: #072A6C;     /* Lighter orange */
+  --primary-dark: #072A6C;      /* Deeper orange */
   --primary-accent: #9b59b6;    /* Purple accent */
   
   /* Secondary & Accent Colors */
@@ -20,7 +20,7 @@
   
   /* Text Colors */
   --text-dark: #1a202c;         /* Darker text for primary content */
-  --text-light: #718096;        /* Bright mid-tone for subtitles */
+  --text-light: #f9fafc;        /* Bright mid-tone for subtitles */
   --text-on-dark: #ffffff;      /* White text on dark backgrounds */
   --text-on-primary: #ffffff;   /* White text on primary color */
   
@@ -4807,12 +4807,6 @@ input, textarea, select {
   }
 }
 
-# FUTA Marketplace Product Detail Page Styles
-
-```css
-/* Product Detail Page Styles */
-
-/* Product Detail Page Styles */
 
 /* Main container */
 .product-detail-container {

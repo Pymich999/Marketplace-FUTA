@@ -64,7 +64,7 @@ const HomePage = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const res = await axios.get("/api/products");
+        const res = await axios.get("http://localhost:3000/api/products");
         setProducts(res.data);
 
         // Extract all unique categories from products to know which fixed categories to activate
