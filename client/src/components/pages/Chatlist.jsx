@@ -15,7 +15,7 @@ const ChatList = () => {
   
   // Create axios instance with token for reuse
   const axiosWithAuth = useMemo(() => {
-    const token = user?.token;
+    const token = user?.accessToken;
     return axios.create({
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -23,7 +23,7 @@ const ChatList = () => {
   
   // Fetch threads function moved outside useEffect for better code organization
   const fetchThreads = useCallback(async () => {
-    if (!user?.token) {
+    if (!user?.accessToken) {
       setError("No authentication token found. Please log in.");
       setLoading(false);
       return;

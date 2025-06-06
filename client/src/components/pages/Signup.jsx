@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { signup, reset } from "../../features/auth/authSlice";
+import { requestEmailOTP, registerBuyer, reset, clearMessage } from "../../features/auth/authSlice";
 import { toast } from 'react-toastify';
 import Spinner from '../Spinner';
 import futaLogo from '../../assets/futa-img-logo/logo.svg';
@@ -15,44 +15,66 @@ const Signup = () => {
         otp: "",
     });
 
-    const [otpSent, setOtpSent] = useState(false);
-    const [otpVerified, setOtpVerified] = useState(false);
-    const [isRequestingOtp, setIsRequestingOtp] = useState(false);
-    const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [formSubmitted, setFormSubmitted] = useState(false);
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
-    const { user, isLoading, isSuccess, isError, message } = useSelector((state) => state.auth);
+    const { 
+        user, 
+        isLoading, 
+        isSuccess, 
+        isError, 
+        message, 
+        otpSent, 
+        otpVerified 
+    } = useSelector((state) => state.auth);
 
-    // This effect handles auth state changes after form submission
+    // Handle auth state changes after form submission
     useEffect(() => {
-        // Only process auth state changes if the form was actually submitted
         if (formSubmitted) {
-            if (isSuccess) {
+            if (isSuccess && user) {
                 toast.success("Account created successfully!");
-                navigate("/login");
+                navigate("/dashboard"); // Navigate to dashboard since user is now logged in
                 setFormSubmitted(false);
             }
             
-            if (isError) {
+            if (isError && message) {
                 if (message.includes('duplicate key') && message.includes('email')) {
                     toast.error("This email is already registered. Please use a different email.");
                 } else if (message.includes('duplicate key') && message.includes('phone')) {
                     toast.error("This phone number is already registered. Please use a different number.");
+                } else if (message.includes('Invalid OTP')) {
+                    toast.error("Invalid OTP. Please check your email and try again.");
                 } else {
                     toast.error(message);
                 }
                 setFormSubmitted(false);
             }
         }
-        
-        // Always reset auth state after processing
-        dispatch(reset());
-    }, [isSuccess, isError, message, navigate, dispatch, formSubmitted]);
+    }, [isSuccess, isError, message, navigate, user, formSubmitted]);
 
-    // Effect to redirect if user is already logged in
+    // Handle OTP request success/error
+    useEffect(() => {
+        if (otpSent && isSuccess && message && !formSubmitted) {
+            toast.success("OTP has been sent to your email! Check your inbox.", {
+                autoClose: 5000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+                progress: undefined,
+            });
+            dispatch(clearMessage());
+        }
+        
+        if (isError && message && !otpSent && !formSubmitted) {
+            toast.error(message || "Failed to send OTP. Please try again.");
+            dispatch(clearMessage());
+        }
+    }, [otpSent, isSuccess, isError, message, dispatch, formSubmitted]);
+
+    // Redirect if user is already logged in
     useEffect(() => {
         if (user) {
             navigate('/dashboard');
@@ -63,75 +85,18 @@ const Signup = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // Request OTP via email
-    const requestEmailOTP = async () => {
+    // Request OTP via Redux action
+    const handleRequestOTP = async () => {
         if (!formData.email) {
             toast.error("Please enter your email address first!");
             return;
         }
 
-        setIsRequestingOtp(true);
+        // Clear any previous messages
+        dispatch(clearMessage());
         
-        try {
-            const response = await fetch('/api/users/request-otp', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email: formData.email }),
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok) {
-                setOtpSent(true);
-                toast.success("OTP has been sent to your email! Check your inbox.", {
-                    autoClose: 5000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                    progress: undefined,
-                });
-            } else {
-                toast.error(data.message || "Failed to send OTP. Please try again.");
-            }
-        } catch (error) {
-            console.error("Error requesting OTP:", error);
-            toast.error("Failed to send OTP. Please check your connection and try again.");
-        } finally {
-            setIsRequestingOtp(false);
-        }
-    };
-
-    // Verify OTP before form submission
-    const verifyOTP = async () => {
-        if (!formData.otp) {
-            toast.error("Please enter the OTP first!");
-            return;
-        }
-
-        setIsVerifyingOtp(true);
-        
-        try {
-            // Simulate API call with timeout
-            // In a real implementation, this would verify with the backend
-            setTimeout(() => {
-                setOtpVerified(true);
-                toast.success("🎉 OTP verified successfully! You can now complete your registration.", {
-                    autoClose: 5000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                    progress: undefined,
-                });
-                setIsVerifyingOtp(false);
-            }, 1000);
-        } catch (error) {
-            toast.error("Failed to verify OTP. Please try again.");
-            setIsVerifyingOtp(false);
-        }
+        // Dispatch the OTP request action
+        dispatch(requestEmailOTP(formData.email));
     };
 
     const handleSubmit = (e) => {
@@ -168,17 +133,28 @@ const Signup = () => {
             return;
         }
         
-        if (!otpVerified) {
-            toast.error("Please verify your OTP first!");
-            return;
-        }
+        // Clear any previous messages
+        dispatch(clearMessage());
         
         // Set flag that form was submitted before dispatching action
         setFormSubmitted(true);
         
-        // Send the entire form data including OTP to the server
-        dispatch(signup(formData));
+        // Register buyer with OTP verification
+        dispatch(registerBuyer({
+            name: formData.name,
+            email: formData.email,
+            password: formData.password,
+            phone: formData.phone,
+            otp: formData.otp
+        }));
     };
+
+    // Reset OTP states when email changes
+    useEffect(() => {
+        if (formData.email !== '') {
+            dispatch(reset());
+        }
+    }, [formData.email, dispatch]);
 
     if (isLoading) {
         return <Spinner />;
@@ -228,6 +204,7 @@ const Signup = () => {
                         placeholder="Enter your email" 
                         className="form-control" 
                         required 
+                        disabled={otpSent} // Disable email field once OTP is sent
                     />
                 </div>
                 
@@ -273,11 +250,11 @@ const Signup = () => {
                     {!otpSent ? (
                         <button 
                             type="button" 
-                            onClick={requestEmailOTP} 
+                            onClick={handleRequestOTP} 
                             className="auth-button otp-button"
-                            disabled={isRequestingOtp}
+                            disabled={isLoading || !formData.email}
                         >
-                            {isRequestingOtp ? (
+                            {isLoading ? (
                                 <>
                                     <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                                     Sending OTP...
@@ -298,6 +275,7 @@ const Signup = () => {
                                     onChange={handleChange} 
                                     placeholder="Enter 6-digit code from email" 
                                     className="form-control" 
+                                    maxLength="6"
                                     required 
                                 />
                                 <small className="form-text text-muted">
@@ -305,28 +283,16 @@ const Signup = () => {
                                 </small>
                             </div>
                             
-                            {!otpVerified ? (
+                            <div className="otp-actions">
                                 <button 
                                     type="button" 
-                                    onClick={verifyOTP} 
-                                    className="auth-button verify-button"
-                                    disabled={isVerifyingOtp}
+                                    onClick={handleRequestOTP} 
+                                    className="auth-button resend-button"
+                                    disabled={isLoading}
                                 >
-                                    {isVerifyingOtp ? (
-                                        <>
-                                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                            Verifying...
-                                        </>
-                                    ) : (
-                                        "Verify Code"
-                                    )}
+                                    {isLoading ? "Resending..." : "Resend OTP"}
                                 </button>
-                            ) : (
-                                <div className="verification-success">
-                                    <i className="bi bi-check-circle-fill text-success me-2"></i>
-                                    <span>Email verified successfully</span>
-                                </div>
-                            )}
+                            </div>
                         </>
                     )}
                 </div>
@@ -335,9 +301,9 @@ const Signup = () => {
                 <button 
                     type="submit" 
                     className="auth-button submit-button" 
-                    disabled={isLoading || !otpSent || !formData.otp || !otpVerified}
+                    disabled={isLoading || !otpSent || !formData.otp}
                 >
-                    {isLoading ? (
+                    {isLoading && formSubmitted ? (
                         <>
                             <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                             Creating Your Account...

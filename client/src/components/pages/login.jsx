@@ -1,9 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { login, reset } from "../../features/auth/authSlice";
+import { 
+    login, 
+    reset, 
+    clearMessage,
+    requestPasswordReset,
+    verifyResetOTP,
+    resetPassword,
+    setOTPSent,
+    setOTPVerified
+} from "../../features/auth/authSlice";
 import futaLogo from '../../assets/futa-img-logo/logo.svg'
-import axios from "axios";
 
 const Login = () => {
     const [formData, setFormData] = useState({ email: "", password: "" });
@@ -17,41 +25,73 @@ const Login = () => {
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [otpTimer, setOtpTimer] = useState(0);
-    const [resetMessage, setResetMessage] = useState({ type: "", text: "" });
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [localMessage, setLocalMessage] = useState({ type: "", text: "" });
     
     const otpInputRefs = useRef([]);
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
-    const { user, isLoading, isSuccess, isError, message } = useSelector((state) => state.auth);
+    const { 
+        user, 
+        isLoading, 
+        isSuccess, 
+        isError, 
+        message, 
+        otpSent, 
+        otpVerified 
+    } = useSelector((state) => state.auth);
 
-// Also add logging to useEffect
-useEffect(() => {
-    console.log('Auth state changed:', { user, isLoading, isSuccess, isError, message });
-    
-    if (isSuccess && user) {
-        console.log('Login successful, redirecting...', user.role);
-        // Redirect based on user role
-        if (user.role === "seller") {
-            navigate("/seller-dashboard");
-        } else if(user.role === "admin"){
-            navigate("/admin")
-        } else if(user.role === "seller_pending"){
-            navigate("/seller-dashboard")
-        } else {
-            navigate("/");
+    // Handle successful login navigation
+    useEffect(() => {
+        console.log('Auth state changed:', { user, isLoading, isSuccess, isError, message });
+        
+        if (isSuccess && user && !showForgotPassword) {
+            console.log('Login successful, redirecting...', user.user?.role || user.role);
+            
+            // Extract role from user object (handle both formats)
+            const userRole = user.user?.role || user.role;
+            
+            // Redirect based on user role
+            if (userRole === "seller" || userRole === "seller_pending") {
+                navigate("/seller-dashboard");
+            } else if (userRole === "admin") {
+                navigate("/admin");
+            } else {
+                navigate("/");
+            }
         }
-    }
 
-    if (isError) {
-        console.error('Login error:', message);
-    }
+        if (isError && !showForgotPassword) {
+            console.error('Login error:', message);
+        }
+    }, [user, isSuccess, isError, message, navigate, showForgotPassword]);
 
-    return () => {
-        dispatch(reset());
-    };
-}, [user, isSuccess, isError, message, navigate, dispatch]);
+    // Handle password reset flow success states
+    useEffect(() => {
+        if (showForgotPassword && isSuccess) {
+            if (resetStep === 1 && otpSent) {
+                setLocalMessage({ type: "success", text: message || "OTP sent to your email" });
+                setResetStep(2);
+                setOtpTimer(120); // 2 minute countdown
+            } else if (resetStep === 2 && otpVerified) {
+                setLocalMessage({ type: "success", text: message || "OTP verified. Set your new password" });
+                setResetStep(3);
+            } else if (resetStep === 3 && !otpSent && !otpVerified) {
+                setLocalMessage({ type: "success", text: message || "Password reset successfully. You can now login with your new password." });
+                setTimeout(() => {
+                    handleBackToLogin();
+                    setFormData({ ...formData, email: resetEmail });
+                }, 3000);
+            }
+        }
+    }, [isSuccess, otpSent, otpVerified, message, resetStep, showForgotPassword]);
+
+    // Handle password reset flow error states
+    useEffect(() => {
+        if (showForgotPassword && isError) {
+            setLocalMessage({ type: "error", text: message });
+        }
+    }, [isError, message, showForgotPassword]);
     
     // Timer for OTP resend
     useEffect(() => {
@@ -64,49 +104,57 @@ useEffect(() => {
         return () => clearInterval(interval);
     }, [otpTimer]);
 
+    // Cleanup when component unmounts or switches between login/forgot password
+    useEffect(() => {
+        return () => {
+            dispatch(reset());
+        };
+    }, [dispatch]);
+
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        // Clear any existing messages when user starts typing
+        if (isError || isSuccess) {
+            dispatch(clearMessage());
+        }
     };
 
     const handleLogin = (e) => {
-    e.preventDefault();
-    console.log('Login button clicked');
-    console.log('Form data:', formData);
-    console.log('Is loading:', isLoading);
-    
-    // Add validation
-    if (!formData.email || !formData.password) {
-        console.error('Email or password missing');
-        return;
-    }
-    
-    try {
-        dispatch(login(formData));
-        console.log('Login dispatched successfully');
-    } catch (error) {
-        console.error('Error dispatching login:', error);
-    }
-};
+        e.preventDefault();
+        console.log('Login button clicked');
+        console.log('Form data:', formData);
+        
+        // Add validation
+        if (!formData.email || !formData.password) {
+            console.error('Email or password missing');
+            return;
+        }
+        
+        // Clear any existing messages
+        dispatch(clearMessage());
+        
+        try {
+            dispatch(login(formData));
+            console.log('Login dispatched successfully');
+        } catch (error) {
+            console.error('Error dispatching login:', error);
+        }
+    };
 
     const handleForgotPassword = (e) => {
         e.preventDefault();
-        setIsSubmitting(true);
         
-        // Request OTP for password reset
-        axios.post("/api/users/request-password-reset", { email: resetEmail })
-            .then(response => {
-                setResetMessage({ type: "success", text: "OTP sent to your email" });
-                setResetStep(2);
-                setOtpTimer(120); // 2 minute countdown
-                setIsSubmitting(false);
-            })
-            .catch(error => {
-                setResetMessage({ 
-                    type: "error", 
-                    text: error.response?.data?.message || "Failed to send OTP. Please try again."
-                });
-                setIsSubmitting(false);
-            });
+        if (!resetEmail) {
+            setLocalMessage({ type: "error", text: "Please enter your email address" });
+            return;
+        }
+        
+        // Clear any existing messages
+        dispatch(clearMessage());
+        setLocalMessage({ type: "", text: "" });
+        
+        // Request OTP for password reset using Redux action
+        dispatch(requestPasswordReset(resetEmail));
     };
 
     const handleOtpChange = (index, value) => {
@@ -134,86 +182,63 @@ useEffect(() => {
         const otp = otpValues.join("");
         
         if (otp.length !== 6) {
-            setResetMessage({ type: "error", text: "Please enter all OTP digits" });
+            setLocalMessage({ type: "error", text: "Please enter all OTP digits" });
             return;
         }
         
-        setIsSubmitting(true);
+        // Clear any existing messages
+        dispatch(clearMessage());
+        setLocalMessage({ type: "", text: "" });
         
-        // Verify OTP
-        axios.post("/api/users/verify-reset-otp", { email: resetEmail, otp })
-            .then(response => {
-                setResetMessage({ type: "success", text: "OTP verified. Set your new password" });
-                setResetStep(3);
-                setIsSubmitting(false);
-            })
-            .catch(error => {
-                setResetMessage({ 
-                    type: "error", 
-                    text: error.response?.data?.message || "Invalid OTP. Please try again."
-                });
-                setIsSubmitting(false);
-            });
+        // Verify OTP using Redux action
+        dispatch(verifyResetOTP({ email: resetEmail, otp }));
     };
 
     const handleResendOtp = () => {
-        setIsSubmitting(true);
-        axios.post("/api/users/request-password-reset", { email: resetEmail })
-            .then(response => {
-                setResetMessage({ type: "success", text: "New OTP sent to your email" });
-                setOtpTimer(120); // Reset the timer
-                setIsSubmitting(false);
-            })
-            .catch(error => {
-                setResetMessage({ 
-                    type: "error", 
-                    text: error.response?.data?.message || "Failed to resend OTP. Please try again."
-                });
-                setIsSubmitting(false);
-            });
+        // Clear any existing messages
+        dispatch(clearMessage());
+        setLocalMessage({ type: "", text: "" });
+        
+        // Reset OTP sent state and request new OTP
+        dispatch(setOTPSent(false));
+        dispatch(requestPasswordReset(resetEmail));
     };
 
     const handlePasswordReset = (e) => {
         e.preventDefault();
         
         if (newPassword !== confirmPassword) {
-            setResetMessage({ type: "error", text: "Passwords do not match" });
+            setLocalMessage({ type: "error", text: "Passwords do not match" });
             return;
         }
         
         if (newPassword.length < 6) {
-            setResetMessage({ type: "error", text: "Password must be at least 6 characters" });
+            setLocalMessage({ type: "error", text: "Password must be at least 6 characters" });
             return;
         }
         
-        setIsSubmitting(true);
+        // Clear any existing messages
+        dispatch(clearMessage());
+        setLocalMessage({ type: "", text: "" });
         
-        // Reset password
-        axios.post("/api/users/reset-password", { 
-            email: resetEmail, 
-            password: newPassword 
-        })
-            .then(response => {
-                setResetMessage({ type: "success", text: "Password reset successfully. You can now login with your new password." });
-                setTimeout(() => {
-                    setShowForgotPassword(false);
-                    setFormData({ ...formData, email: resetEmail });
-                    setResetStep(1);
-                    setResetEmail("");
-                    setOtpValues(["", "", "", "", "", ""]);
-                    setNewPassword("");
-                    setConfirmPassword("");
-                    setResetMessage({ type: "", text: "" });
-                }, 3000);
-                setIsSubmitting(false);
-            })
-            .catch(error => {
-                setResetMessage({ 
-                    type: "error", 
-                    text: error.response?.data?.message || "Failed to reset password. Please try again."
-                });
-                setIsSubmitting(false);
-            });
+        // Reset password using Redux action
+        dispatch(resetPassword({ email: resetEmail, password: newPassword }));
+    };
+
+    const handleBackToLogin = () => {
+        setShowForgotPassword(false);
+        setResetStep(1);
+        setResetEmail("");
+        setOtpValues(["", "", "", "", "", ""]);
+        setNewPassword("");
+        setConfirmPassword("");
+        setLocalMessage({ type: "", text: "" });
+        setOtpTimer(0);
+        
+        // Reset all auth states
+        dispatch(reset());
+        dispatch(setOTPSent(false));
+        dispatch(setOTPVerified(false));
     };
 
     const formatTime = (seconds) => {
@@ -221,6 +246,16 @@ useEffect(() => {
         const secs = seconds % 60;
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     };
+
+    // Determine which message to display
+    const getDisplayMessage = () => {
+        if (showForgotPassword) {
+            return localMessage.text ? localMessage : (message ? { type: isError ? "error" : "success", text: message } : { type: "", text: "" });
+        }
+        return message ? { type: isError ? "error" : "success", text: message } : { type: "", text: "" };
+    };
+
+    const displayMessage = getDisplayMessage();
 
     return (
         <div className="auth-container">
@@ -238,7 +273,11 @@ useEffect(() => {
                 <form onSubmit={handleLogin} className="auth-form">
                     <h2 className="auth-title">Login</h2>
 
-                    {isError && <p className="error-message">{message}</p>}
+                    {displayMessage.text && (
+                        <p className={`${displayMessage.type === "error" ? "error-message" : "success-message"}`}>
+                            {displayMessage.text}
+                        </p>
+                    )}
 
                     <div className="input-group">
                         <input 
@@ -282,7 +321,10 @@ useEffect(() => {
                         <button 
                             type="button" 
                             className="forgot-password-link"
-                            onClick={() => setShowForgotPassword(true)}
+                            onClick={() => {
+                                setShowForgotPassword(true);
+                                dispatch(clearMessage());
+                            }}
                         >
                             Forgot Password?
                         </button>
@@ -292,9 +334,9 @@ useEffect(() => {
                 <div className="auth-form">
                     <h2 className="auth-title">Reset Password</h2>
                     
-                    {resetMessage.text && (
-                        <p className={`message ${resetMessage.type}`}>
-                            {resetMessage.text}
+                    {displayMessage.text && (
+                        <p className={`message ${displayMessage.type}`}>
+                            {displayMessage.text}
                         </p>
                     )}
                     
@@ -306,7 +348,14 @@ useEffect(() => {
                             <input 
                                 type="email" 
                                 value={resetEmail} 
-                                onChange={(e) => setResetEmail(e.target.value)} 
+                                onChange={(e) => {
+                                    setResetEmail(e.target.value);
+                                    // Clear messages when user types
+                                    if (localMessage.text || message) {
+                                        setLocalMessage({ type: "", text: "" });
+                                        dispatch(clearMessage());
+                                    }
+                                }} 
                                 placeholder="Email" 
                                 className="login-input" 
                                 required 
@@ -314,9 +363,9 @@ useEffect(() => {
                             <button 
                                 type="submit" 
                                 className="auth-button"
-                                disabled={isSubmitting}
+                                disabled={isLoading}
                             >
-                                {isSubmitting ? "Sending..." : "Send OTP"}
+                                {isLoading ? "Sending..." : "Send OTP"}
                             </button>
                         </form>
                     )}
@@ -351,9 +400,9 @@ useEffect(() => {
                                         type="button" 
                                         className="resend-otp-button"
                                         onClick={handleResendOtp}
-                                        disabled={isSubmitting}
+                                        disabled={isLoading}
                                     >
-                                        Resend OTP
+                                        {isLoading ? "Sending..." : "Resend OTP"}
                                     </button>
                                 )}
                             </div>
@@ -361,9 +410,9 @@ useEffect(() => {
                             <button 
                                 type="submit" 
                                 className="auth-button"
-                                disabled={isSubmitting || otpValues.join("").length !== 6}
+                                disabled={isLoading || otpValues.join("").length !== 6}
                             >
-                                {isSubmitting ? "Verifying..." : "Verify OTP"}
+                                {isLoading ? "Verifying..." : "Verify OTP"}
                             </button>
                         </form>
                     )}
@@ -378,7 +427,13 @@ useEffect(() => {
                                 <input 
                                     type={showNewPassword ? "text" : "password"} 
                                     value={newPassword} 
-                                    onChange={(e) => setNewPassword(e.target.value)} 
+                                    onChange={(e) => {
+                                        setNewPassword(e.target.value);
+                                        // Clear messages when user types
+                                        if (localMessage.text) {
+                                            setLocalMessage({ type: "", text: "" });
+                                        }
+                                    }} 
                                     placeholder="New Password" 
                                     className="login-input" 
                                     required 
@@ -397,7 +452,13 @@ useEffect(() => {
                                 <input 
                                     type={showConfirmPassword ? "text" : "password"} 
                                     value={confirmPassword} 
-                                    onChange={(e) => setConfirmPassword(e.target.value)} 
+                                    onChange={(e) => {
+                                        setConfirmPassword(e.target.value);
+                                        // Clear messages when user types
+                                        if (localMessage.text) {
+                                            setLocalMessage({ type: "", text: "" });
+                                        }
+                                    }} 
                                     placeholder="Confirm Password" 
                                     className="login-input" 
                                     required 
@@ -414,9 +475,9 @@ useEffect(() => {
                             <button 
                                 type="submit" 
                                 className="auth-button"
-                                disabled={isSubmitting}
+                                disabled={isLoading}
                             >
-                                {isSubmitting ? "Resetting..." : "Reset Password"}
+                                {isLoading ? "Resetting..." : "Reset Password"}
                             </button>
                         </form>
                     )}
@@ -424,15 +485,7 @@ useEffect(() => {
                     <button 
                         type="button" 
                         className="back-to-login"
-                        onClick={() => {
-                            setShowForgotPassword(false);
-                            setResetStep(1);
-                            setResetEmail("");
-                            setOtpValues(["", "", "", "", "", ""]);
-                            setNewPassword("");
-                            setConfirmPassword("");
-                            setResetMessage({ type: "", text: "" });
-                        }}
+                        onClick={handleBackToLogin}
                     >
                         Back to Login
                     </button>

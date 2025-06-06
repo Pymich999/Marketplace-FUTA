@@ -2,7 +2,14 @@ import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { sellerSignup, reset } from '../../features/auth/authSlice';
+import { 
+  registerSeller, 
+  requestEmailOTP, 
+  reset, 
+  clearMessage,
+  setOTPSent,
+  setOTPVerified 
+} from '../../features/auth/authSlice';
 import { toast } from 'react-toastify';
 import Spinner from '../Spinner';
 import futaLogo from '../../assets/futa-img-logo/logo.svg';
@@ -20,63 +27,70 @@ function SellerSignup() {
   });
   
   const { name, email, password, phone, businessName, studentName, businessDescription } = formData;
-
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpVerified, setOtpVerified] = useState(false);
-  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { user, isLoading, isSuccess, isError, message } = useSelector((state) => state.auth);
+  const { 
+    user, 
+    isLoading, 
+    isSuccess, 
+    isError, 
+    message, 
+    otpSent, 
+    otpVerified 
+  } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    if (isSuccess || user) {
+    if (isSuccess && user) {
       toast.success("Seller account created successfully!");
       navigate("/seller-dashboard");
     }
-    if (isError) {
+    
+    if (isError && message) {
       if (message.includes('duplicate key') && message.includes('phone')) {
         toast.error("This phone number is already registered. Please use a different number.");
       } else {
         toast.error(message);
       }
     }
-    dispatch(reset());
+    
+    // Clear messages after showing them
+    if (message) {
+      const timer = setTimeout(() => {
+        dispatch(clearMessage());
+      }, 100);
+      return () => clearTimeout(timer);
+    }
   }, [user, isSuccess, isError, message, navigate, dispatch]);
+
+  // Reset component state when component unmounts
+  useEffect(() => {
+    return () => {
+      dispatch(reset());
+    };
+  }, [dispatch]);
 
   const onChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-  // Request OTP via email
-  const requestEmailOTP = async () => {
+  // Request OTP via Redux action
+  const handleRequestEmailOTP = async () => {
     if (!formData.email) {
       toast.error("Please enter your email address first!");
       return;
     }
 
-    setIsRequestingOtp(true);
-    
     try {
-      const response = await fetch('/api/users/request-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: formData.email }),
-      });
+      const result = await dispatch(requestEmailOTP(formData.email));
       
-      const data = await response.json();
-      
-      if (response.ok) {
-        setOtpSent(true);
+      if (requestEmailOTP.fulfilled.match(result)) {
         toast.success("OTP has been sent to your email! Check your inbox.", {
           autoClose: 5000,
           hideProgressBar: false,
@@ -86,13 +100,12 @@ function SellerSignup() {
           progress: undefined,
         });
       } else {
-        toast.error(data.message || "Failed to send OTP. Please try again.");
+        // Error is already handled in the useEffect above
+        console.error("Failed to send OTP:", result.payload);
       }
     } catch (error) {
       console.error("Error requesting OTP:", error);
       toast.error("Failed to send OTP. Please check your connection and try again.");
-    } finally {
-      setIsRequestingOtp(false);
     }
   };
 
@@ -106,9 +119,9 @@ function SellerSignup() {
     setIsVerifyingOtp(true);
     
     try {
-      // Simulate API call with timeout
+      // Simulate OTP verification (you might want to add actual verification API call)
       setTimeout(() => {
-        setOtpVerified(true);
+        dispatch(setOTPVerified(true));
         toast.success("🎉 OTP verified successfully! You can now submit your seller application.", {
           autoClose: 5000,
           hideProgressBar: false,
@@ -125,7 +138,7 @@ function SellerSignup() {
     }
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
 
     // Validate required fields
@@ -149,8 +162,17 @@ function SellerSignup() {
       return;
     }
 
-    // Send the entire form data including OTP to the server
-    dispatch(sellerSignup(formData));
+    // Send the entire form data including OTP to the server via Redux action
+    try {
+      const result = await dispatch(registerSeller(formData));
+      
+      if (registerSeller.rejected.match(result)) {
+        // Error handling is done in useEffect, but we can add specific handling here if needed
+        console.error("Registration failed:", result.payload);
+      }
+    } catch (error) {
+      console.error("Error during registration:", error);
+    }
   };
 
   if (isLoading) {
@@ -196,26 +218,26 @@ function SellerSignup() {
           </div>
           
           <div className="form-group">
-                    <label htmlFor="password">Password</label>
-                    <div className="password-input-container">
-                        <input 
-                            type={showPassword ? "text" : "password"}
-                            id="password" 
-                            name="password" 
-                            value={formData.password} 
-                            onChange={handleChange} 
-                            placeholder="Password" 
-                            className="form-control" 
-                            required 
-                        />
-                        <button 
-                            type="button" 
-                            className="password-toggle-btn"
-                            onClick={() => setShowPassword(!showPassword)}
-                        >
-                            {showPassword ? "Hide" : "Show"}
-                        </button>
-                    </div>
+            <label htmlFor="password">Password</label>
+            <div className="password-input-container">
+              <input 
+                type={showPassword ? "text" : "password"}
+                id="password" 
+                name="password" 
+                value={formData.password} 
+                onChange={handleChange} 
+                placeholder="Password" 
+                className="form-control" 
+                required 
+              />
+              <button 
+                type="button" 
+                className="password-toggle-btn"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </div>
 
           <div className='form-group'>
@@ -278,11 +300,11 @@ function SellerSignup() {
             {!otpSent ? (
               <button 
                 type="button" 
-                onClick={requestEmailOTP} 
+                onClick={handleRequestEmailOTP} 
                 className="auth-button otp-button"
-                disabled={isRequestingOtp}
+                disabled={isLoading}
               >
-                {isRequestingOtp ? "Sending OTP..." : "Send Verification OTP"}
+                {isLoading ? "Sending OTP..." : "Send Verification OTP"}
               </button>
             ) : (
               <>

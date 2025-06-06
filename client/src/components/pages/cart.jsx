@@ -9,7 +9,7 @@ import _ from 'lodash';
 const Cart = () => {
   const dispatch = useDispatch();
   const user = JSON.parse(localStorage.getItem('user'));
-  const token = user?.token;
+  const token = user.accessToken;
   const navigate = useNavigate();
   const { items, isLoading, isSuccess, isError, message } = useSelector(state => state.cart);
   const [operationInProgress, setOperationInProgress] = useState(false);

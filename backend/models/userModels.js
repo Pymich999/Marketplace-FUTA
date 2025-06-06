@@ -23,6 +23,10 @@ const userSchema = mongoose.Schema(
         
         verified: { type: Boolean, default: false },
 
+        loginAttempts: { type: Number, default: 0 },
+        lockUntil: Date,
+        isEmailVerified: { type: Boolean, default: false },
+
         role: {
             type: String,
             enum: ["buyer", "seller_pending", "seller"],

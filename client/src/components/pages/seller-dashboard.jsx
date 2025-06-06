@@ -102,7 +102,7 @@ const SellerDashboard = () => {
         if (userString) {
           const userData = JSON.parse(userString);
           setUser(userData);
-          const token = userData.token;
+          const token = userData.accessToken;
           
           if (token) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
