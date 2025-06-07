@@ -5,7 +5,7 @@ const Product = require("../models/productModels");
 const User = require("../models/userModels");
 const SellerProfile = require("../models/Sellerprofile");
 
-// Checkout attempt TTL schema
+
 const checkoutAttemptSchema = new mongoose.Schema({
   buyerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -222,72 +222,464 @@ exports.checkoutChat = asyncHandler(async (req, res) => {
   }
 });
 
-exports.getChatsForUser = asyncHandler(async (req, res) => {
-  const uid = req.user._id.toString();
-  const snap = await admin.database().ref("chats").once("value");
-  const threads = [];
+// Cache for user data to reduce database queries
+const userCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-  snap.forEach(child => {
-    const key = child.key;
-    if (key.includes(uid)) {
-      const [a, b] = key.split("_");
-      const other = a === uid ? b : a;
-      threads.push({ threadId: key, otherUserId: other });
+// Clear cache periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of userCache.entries()) {
+    if (now - value.timestamp > CACHE_TTL) {
+      userCache.delete(key);
     }
-  });
+  }
+}, 60000); // Clean every minute
 
-  res.json(threads);
+// Helper function to get cached user info
+const getCachedUserInfo = async (userId) => {
+  const cacheKey = userId;
+  const cached = userCache.get(cacheKey);
+
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  try {
+    const user = await User.findById(userId).select('name role').lean();
+    if (!user) {
+      const fallbackData = { name: `User ${userId.slice(0, 5)}`, role: 'user' };
+      userCache.set(cacheKey, { data: fallbackData, timestamp: Date.now() });
+      return fallbackData;
+    }
+
+    let userName = user.name;
+    if (user.role === 'seller') {
+      const sellerProfile = await SellerProfile.findOne({ userId }).select('studentName businessName').lean();
+      userName = sellerProfile?.studentName || sellerProfile?.businessName || user.name;
+    }
+
+    const userData = {
+      name: userName || `User ${userId.slice(0, 5)}`,
+      role: user.role
+    };
+
+    userCache.set(cacheKey, { data: userData, timestamp: Date.now() });
+    return userData;
+  } catch (error) {
+    console.error(`Error fetching user ${userId}:`, error);
+    const fallbackData = { name: `User ${userId.slice(0, 5)}`, role: 'user' };
+    userCache.set(cacheKey, { data: fallbackData, timestamp: Date.now() });
+    return fallbackData;
+  }
+};
+
+// Batch fetch user information
+const batchFetchUsers = async (userIds) => {
+  const uniqueUserIds = [...new Set(userIds)];
+  const userPromises = uniqueUserIds.map(userId => getCachedUserInfo(userId));
+
+  try {
+    const users = await Promise.all(userPromises);
+    const userMap = {};
+
+    uniqueUserIds.forEach((userId, index) => {
+      userMap[userId] = users[index];
+    });
+
+    return userMap;
+  } catch (error) {
+    console.error('Error in batch fetch users:', error);
+    // Return fallback data for all users
+    const fallbackMap = {};
+    uniqueUserIds.forEach(userId => {
+      fallbackMap[userId] = { name: `User ${userId.slice(0, 5)}`, role: 'user' };
+    });
+    return fallbackMap;
+  }
+};
+
+// Main optimized endpoint - single API call solution
+exports.getOptimizedChatsForUser = asyncHandler(async (req, res) => {
+  const userId = req.user._id.toString();
+
+  try {
+    // Single Firebase query to get all chat threads
+    const threadsSnapshot = await admin.database()
+      .ref("chats")
+      .once("value");
+
+    if (!threadsSnapshot.exists()) {
+      return res.json({ threads: [], users: {} });
+    }
+
+    const userThreads = [];
+    const allUserIds = new Set();
+
+    // Process all threads and extract user IDs
+    threadsSnapshot.forEach(child => {
+      const threadId = child.key;
+
+      // Enhanced security check - ensure user is actually part of this thread
+      if (!threadId.includes(userId)) return;
+
+      const [buyerId, sellerId] = threadId.split("_");
+
+      // Additional security validation
+      if (buyerId !== userId && sellerId !== userId) return;
+
+      const otherUserId = buyerId === userId ? sellerId : buyerId;
+
+      // Validate that otherUserId is a valid ObjectId
+      if (!mongoose.Types.ObjectId.isValid(otherUserId)) return;
+
+      const threadData = child.val();
+      if (!threadData || typeof threadData !== 'object') return;
+
+      const messages = Object.values(threadData);
+      if (!Array.isArray(messages) || messages.length === 0) {
+        // Include empty threads but mark them appropriately
+        userThreads.push({
+          threadId,
+          otherUserId,
+          buyerId,
+          sellerId,
+          lastMessage: "",
+          timestamp: Date.now(),
+          unreadCount: 0,
+          isEmpty: true
+        });
+        allUserIds.add(otherUserId);
+        return;
+      }
+
+      // Sort messages by timestamp and get the latest
+      const sortedMessages = messages
+        .filter(msg => msg && typeof msg === 'object' && msg.timestamp)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      const lastMessage = sortedMessages[0];
+
+      // Count unread messages for current user
+      const unreadCount = messages.filter(msg =>
+        msg &&
+        msg.receiverId === userId &&
+        !msg.read &&
+        msg.senderId !== userId
+      ).length;
+
+      userThreads.push({
+        threadId,
+        otherUserId,
+        buyerId,        // ✅ ADD THIS
+        sellerId,       // ✅ ADD THIS
+        lastMessage: lastMessage?.content || "",
+        timestamp: lastMessage?.timestamp || Date.now(),
+        unreadCount: unreadCount,
+        lastMessageType: lastMessage?.type || 'text',
+        productId: lastMessage?.productId || null,
+        productTitle: lastMessage?.productTitle || null,  // ✅ ADD THIS
+        quantity: lastMessage?.quantity || null,
+        price: lastMessage?.price || null
+      });
+
+      allUserIds.add(otherUserId);
+    });
+
+    const userMap = await batchFetchUsers(Array.from(allUserIds));
+
+    // Transform userMap to match frontend expectations
+    const transformedUserMap = {};
+    Object.entries(userMap).forEach(([userId, userData]) => {
+      // Frontend expects: users[userId] = "Name String"
+      // Controller returns: users[userId] = { name: "Name", role: "role" }
+      transformedUserMap[userId] = userData.name;
+    });
+
+    // Sort threads by timestamp (most recent first)
+    const sortedThreads = userThreads.sort((a, b) => b.timestamp - a.timestamp);
+
+    const responseTimestamp = Date.now();
+    res.set({
+      'X-Data-Timestamp': responseTimestamp.toString(),
+      'Cache-Control': 'private, max-age=60', // Cache for 1 minute
+      'ETag': `"chats-${userId}-${responseTimestamp}"`
+    });
+
+    res.json({
+      threads: sortedThreads,
+      users: transformedUserMap,
+      timestamp: responseTimestamp  // Use same timestamp
+    });
+
+  } catch (error) {
+    console.error("Error fetching optimized chats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to load conversations",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
+// Legacy endpoint - kept for backward compatibility but optimized
+exports.getChatsForUser = asyncHandler(async (req, res) => {
+  const userId = req.user._id.toString();
+
+  try {
+    const snap = await admin.database().ref("chats").once("value");
+    const threads = [];
+
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const threadId = child.key;
+        if (threadId.includes(userId)) {
+          const [buyerId, sellerId] = threadId.split("_");
+
+          // Security validation
+          if (buyerId === userId || sellerId === userId) {
+            const otherUserId = buyerId === userId ? sellerId : buyerId;
+            threads.push({ threadId, otherUserId });
+          }
+        }
+      });
+    }
+
+    res.json(threads);
+  } catch (error) {
+    console.error("Error fetching chats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to load conversations"
+    });
+  }
+});
+
+// Enhanced security for thread access
 exports.getChatThread = asyncHandler(async (req, res) => {
   const { threadId } = req.params;
-  const snap = await admin.database().ref(`chats/${threadId}`).once("value");
-  const data = snap.val() || {};
-  const messages = Object.entries(data)
-    .map(([id, msg]) => ({ id, ...msg }))
-    .sort((a, b) => a.timestamp - b.timestamp);
-  res.json(messages);
+  const userId = req.user._id.toString();
+
+  try {
+    // Enhanced security check
+    if (!threadId || !threadId.includes("_")) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid thread ID format"
+      });
+    }
+
+    const [buyerId, sellerId] = threadId.split("_");
+
+    // Strict access control - user must be either buyer or seller
+    if (buyerId !== userId && sellerId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied to this conversation"
+      });
+    }
+
+    // Validate that both IDs are valid ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(buyerId) || !mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user IDs in thread"
+      });
+    }
+
+    const snap = await admin.database().ref(`chats/${threadId}`).once("value");
+
+    if (!snap.exists()) {
+      return res.json([]);
+    }
+
+    const data = snap.val();
+    const messages = Object.entries(data)
+      .map(([id, msg]) => ({
+        id,
+        ...msg,
+        // Sanitize message data
+        content: msg.content || '',
+        timestamp: msg.timestamp || Date.now(),
+        senderId: msg.senderId || '',
+        receiverId: msg.receiverId || ''
+      }))
+      .filter(msg =>
+        // Additional validation - ensure message involves the requesting user
+        msg.senderId === userId || msg.receiverId === userId
+      )
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    res.json(messages);
+  } catch (error) {
+    console.error("Error fetching chat thread:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to load messages"
+    });
+  }
 });
 
+// Enhanced thread details with better security
 exports.getChatThreadDetails = asyncHandler(async (req, res) => {
   const { threadId } = req.params;
   const userId = req.user._id.toString();
-  
+
   try {
-    // Check if the user is part of this thread
-    if (!threadId.includes(userId)) {
-      return res.status(403).json({ 
-        success: false, 
-        message: "You don't have access to this conversation" 
+    // Enhanced security validation
+    if (!threadId || !threadId.includes("_")) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid thread ID format"
       });
     }
-    
+
+    const [buyerId, sellerId] = threadId.split("_");
+
+    // Strict access control
+    if (buyerId !== userId && sellerId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have access to this conversation"
+      });
+    }
+
+    // Validate ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(buyerId) || !mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user IDs"
+      });
+    }
+
     // Get thread details from Firestore
     const threadDoc = await admin.firestore().collection('chatThreads').doc(threadId).get();
-    
+
     if (!threadDoc.exists) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Conversation not found" 
+      return res.status(404).json({
+        success: false,
+        message: "Conversation not found"
       });
     }
-    
+
     const threadData = threadDoc.data();
-    
-    // Make sure user is actually part of this thread
-    if (!threadData.users.includes(userId)) {
-      return res.status(403).json({ 
-        success: false, 
-        message: "You don't have access to this conversation" 
+
+    // Additional security check
+    if (!threadData.users || !threadData.users.includes(userId)) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have access to this conversation"
       });
     }
-    
-    res.status(200).json(threadData);
+
+    // Sanitize and return thread data
+    const sanitizedData = {
+      users: threadData.users || [],
+      lastMessage: threadData.lastMessage || '',
+      lastTimestamp: threadData.lastTimestamp || Date.now(),
+      productId: threadData.productId || null,
+      buyerId: threadData.buyerId || '',
+      sellerId: threadData.sellerId || '',
+      buyerName: threadData.buyerName || '',
+      sellerName: threadData.sellerName || '',
+      productTitle: threadData.productTitle || '',
+      quantity: threadData.quantity || 0,
+      price: threadData.price || '0.00'
+    };
+
+    res.status(200).json(sanitizedData);
   } catch (error) {
     console.error("Error fetching thread details:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || "Failed to load conversation details" 
+    res.status(500).json({
+      success: false,
+      message: "Failed to load conversation details"
     });
+  }
+});
+
+// Mark messages as read - optimized batch operation
+exports.markMessagesAsRead = asyncHandler(async (req, res) => {
+  const { threadId, messageIds } = req.body;
+  const userId = req.user._id.toString();
+
+  try {
+    // Security validation
+    if (!threadId.includes(userId)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied"
+      });
+    }
+
+    if (!Array.isArray(messageIds) || messageIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid message IDs"
+      });
+    }
+
+    // Batch update operation
+    const updates = {};
+    messageIds.forEach(messageId => {
+      updates[`${messageId}/read`] = true;
+      updates[`${messageId}/readAt`] = Date.now();
+    });
+
+    await admin.database().ref(`chats/${threadId}`).update(updates);
+
+    res.json({ success: true, message: "Messages marked as read" });
+  } catch (error) {
+    console.error("Error marking messages as read:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to mark messages as read"
+    });
+  }
+});
+
+// Get unread message count for user - optimized
+exports.getUnreadCount = asyncHandler(async (req, res) => {
+  const userId = req.user._id.toString();
+
+  try {
+    const snap = await admin.database().ref("chats").once("value");
+    let totalUnreadCount = 0;
+
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const threadId = child.key;
+        if (threadId.includes(userId)) {
+          const threadData = child.val();
+          if (threadData) {
+            const messages = Object.values(threadData);
+            const unreadCount = messages.filter(msg =>
+              msg &&
+              msg.receiverId === userId &&
+              !msg.read &&
+              msg.senderId !== userId
+            ).length;
+            totalUnreadCount += unreadCount;
+          }
+        }
+      });
+    }
+
+    res.json({ unreadCount: totalUnreadCount });
+  } catch (error) {
+    console.error("Error getting unread count:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get unread count"
+    });
+  }
+});
+
+// Clear user cache (for admin/maintenance)
+exports.clearUserCache = asyncHandler(async (req, res) => {
+  try {
+    userCache.clear();
+    res.json({ success: true, message: "User cache cleared" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to clear cache" });
   }
 });

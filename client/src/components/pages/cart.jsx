@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
+import authService from "../../features/auth/authService"
 import { useNavigate } from 'react-router-dom';
 import { getCart, updateCart, removeFromCart, reset } from '../../features/cart/cartSlice';
 import { FaArrowRight, FaShoppingBag, FaCheckCircle, FaBell } from 'react-icons/fa';
@@ -8,8 +9,8 @@ import _ from 'lodash';
 
 const Cart = () => {
   const dispatch = useDispatch();
-  const user = JSON.parse(localStorage.getItem('user'));
-  const token = user.accessToken;
+  const token = authService.getAccessToken();
+  const user = authService.getCurrentUser()?.user;
   const navigate = useNavigate();
   const { items, isLoading, isSuccess, isError, message } = useSelector(state => state.cart);
   const [operationInProgress, setOperationInProgress] = useState(false);

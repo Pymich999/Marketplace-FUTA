@@ -375,7 +375,7 @@ const HomePage = () => {
         <div className="product-detail-container">
           <div className="product-detail-header">
             <button
-              className="back-button"
+              className="back-buttonn"
               onClick={handleCloseDetail}
               aria-label="Go back to products"
             >

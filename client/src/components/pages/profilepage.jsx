@@ -36,7 +36,7 @@ const Profile = () => {
 
   const getAuthToken = () => {
     const user = JSON.parse(localStorage.getItem('user'));
-    return user ? user.token : null;
+    return user ? user.accessToken : null;
   }
 
   const getCurrentUser = () => {
