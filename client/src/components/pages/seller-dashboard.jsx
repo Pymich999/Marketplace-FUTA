@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import BulkProductUploader from './bulk-Upload'; // Import the BulkProductUploader component
+import '../pages-styles/seller-dashboard.css'
 
 const SellerDashboard = () => {
   // Fixed categories array

@@ -13,6 +13,7 @@ import {
 import { toast } from 'react-toastify';
 import Spinner from '../Spinner';
 import futaLogo from '../../assets/futa-img-logo/logo.svg';
+import '../pages-styles/auth.css'
 
 function SellerSignup() {
   const [formData, setFormData] = useState({

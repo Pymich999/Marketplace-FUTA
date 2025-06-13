@@ -2,7 +2,38 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:3000/api/users/';
 
-// Request OTP for email verification (new endpoint)
+// Token refresh state management
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    
+    failedQueue = [];
+};
+
+// Helper function to check if token is expired or about to expire
+const isTokenExpired = (token) => {
+    if (!token) return true;
+    
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Date.now() / 1000;
+        // Consider token expired if it expires in the next 2 minutes
+        return payload.exp < (currentTime + 120);
+    } catch (error) {
+        console.error('Error parsing token:', error);
+        return true;
+    }
+};
+
+// Request OTP for email verification
 const requestEmailOTP = async (email) => {
     try {
         const response = await axios.post(API_URL + 'request-otp', { email });
@@ -17,14 +48,14 @@ const requestEmailOTP = async (email) => {
 const registerBuyer = async (userData) => {
     try {
         console.log("Registering buyer:", userData);
-        const response = await axios.post(API_URL + 'register-buyer', userData);
+        const response = await axios.post(API_URL, userData);
         
         if (response.data && response.data.success) {
-            // Store both access and refresh tokens
             const userDataToStore = {
                 user: response.data.user,
                 accessToken: response.data.accessToken,
-                refreshToken: response.data.refreshToken
+                refreshToken: response.data.refreshToken,
+                tokenTimestamp: Date.now()
             };
             localStorage.setItem('user', JSON.stringify(userDataToStore));
         }
@@ -40,14 +71,14 @@ const registerBuyer = async (userData) => {
 const registerSeller = async (userData) => {
     try {
         console.log("Registering seller:", userData);
-        const response = await axios.post(API_URL + 'register-seller', userData);
+        const response = await axios.post(API_URL + 'seller-signup', userData);
         
         if (response.data && response.data.success) {
-            // Store both access and refresh tokens
             const userDataToStore = {
                 user: response.data.user,
                 accessToken: response.data.accessToken,
-                refreshToken: response.data.refreshToken
+                refreshToken: response.data.refreshToken,
+                tokenTimestamp: Date.now()
             };
             localStorage.setItem('user', JSON.stringify(userDataToStore));
         }
@@ -65,11 +96,11 @@ const login = async (userData) => {
         const response = await axios.post(API_URL + 'login', userData);
         
         if (response.data && response.data.success) {
-            // Store both access and refresh tokens
             const userDataToStore = {
                 user: response.data.user,
                 accessToken: response.data.accessToken,
-                refreshToken: response.data.refreshToken
+                refreshToken: response.data.refreshToken,
+                tokenTimestamp: Date.now()
             };
             localStorage.setItem('user', JSON.stringify(userDataToStore));
         }
@@ -114,40 +145,55 @@ const resetPassword = async (email, password) => {
     }
 };
 
-// Refresh access token
+// Refresh access token - improved version
 const refreshToken = async () => {
-    try {
-        const userData = JSON.parse(localStorage.getItem('user'));
-        if (!userData || !userData.refreshToken) {
-            throw new Error('No refresh token available');
-        }
+    const userData = JSON.parse(localStorage.getItem('user'));
+    
+    if (!userData || !userData.refreshToken) {
+        throw new Error('No refresh token available');
+    }
 
+    // Check if refresh token itself is expired (rough check)
+    try {
+        const refreshPayload = JSON.parse(atob(userData.refreshToken.split('.')[1]));
+        const currentTime = Date.now() / 1000;
+        
+        if (refreshPayload.exp < currentTime) {
+            localStorage.removeItem('user');
+            throw new Error('Refresh token expired');
+        }
+    } catch (error) {
+        localStorage.removeItem('user');
+        throw new Error('Invalid refresh token');
+    }
+
+    try {
         const response = await axios.post(API_URL + 'refresh-token', {
             refreshToken: userData.refreshToken
         });
 
         if (response.data && response.data.success) {
-            // Update stored tokens
             const updatedUserData = {
                 ...userData,
                 accessToken: response.data.accessToken,
-                refreshToken: response.data.refreshToken
+                refreshToken: response.data.refreshToken,
+                tokenTimestamp: Date.now()
             };
             localStorage.setItem('user', JSON.stringify(updatedUserData));
+            return response.data;
         }
-
-        return response.data;
     } catch (error) {
         console.error("Error refreshing token:", error.response?.data || error.message);
-        // If refresh fails, clear stored data
         localStorage.removeItem('user');
         throw error;
     }
 };
 
-// Get user by ID
+// Get user by ID with automatic token refresh
 const getUserById = async (userId) => {
     try {
+        await ensureValidToken();
+        
         const userData = JSON.parse(localStorage.getItem('user'));
         const token = userData?.accessToken;
 
@@ -164,21 +210,53 @@ const getUserById = async (userId) => {
     }
 };
 
+// Ensure we have a valid token before making requests
+const ensureValidToken = async () => {
+    const userData = getCurrentUser();
+    
+    if (!userData || !userData.accessToken) {
+        throw new Error('No authentication data');
+    }
+    
+    if (isTokenExpired(userData.accessToken)) {
+        console.log('Access token expired, refreshing...');
+        await refreshToken();
+    }
+};
+
 // Logout user
 const logout = () => {
     localStorage.removeItem('user');
+    // Optional: Also call backend logout endpoint if you have one
 };
 
 // Get current user from localStorage
 const getCurrentUser = () => {
-    const userData = localStorage.getItem('user');
-    return userData ? JSON.parse(userData) : null;
+    try {
+        const userData = localStorage.getItem('user');
+        return userData ? JSON.parse(userData) : null;
+    } catch (error) {
+        console.error('Error parsing user data:', error);
+        localStorage.removeItem('user');
+        return null;
+    }
 };
 
-// Check if user is authenticated
+// Check if user is authenticated with valid token
 const isAuthenticated = () => {
     const userData = getCurrentUser();
-    return userData && userData.accessToken;
+    if (!userData || !userData.accessToken || !userData.refreshToken) {
+        return false;
+    }
+    
+    // Check if refresh token is still valid
+    try {
+        const refreshPayload = JSON.parse(atob(userData.refreshToken.split('.')[1]));
+        const currentTime = Date.now() / 1000;
+        return refreshPayload.exp > currentTime;
+    } catch (error) {
+        return false;
+    }
 };
 
 // Get access token
@@ -187,27 +265,80 @@ const getAccessToken = () => {
     return userData?.accessToken;
 };
 
-// Axios interceptor to handle token refresh automatically
+// Improved Axios interceptor with better error handling
+axios.interceptors.request.use(
+    async (config) => {
+        // Skip token check for auth endpoints
+        const authEndpoints = ['login', 'register-buyer', 'register-seller', 'request-otp', 'request-password-reset', 'verify-reset-otp', 'reset-password'];
+        const isAuthEndpoint = authEndpoints.some(endpoint => config.url.includes(endpoint));
+        
+        if (!isAuthEndpoint) {
+            const userData = getCurrentUser();
+            if (userData?.accessToken) {
+                // Check if token needs refresh before request
+                if (isTokenExpired(userData.accessToken)) {
+                    try {
+                        await refreshToken();
+                        const updatedUserData = getCurrentUser();
+                        config.headers.Authorization = `Bearer ${updatedUserData.accessToken}`;
+                    } catch (error) {
+                        // If refresh fails, let the response interceptor handle it
+                        config.headers.Authorization = `Bearer ${userData.accessToken}`;
+                    }
+                } else {
+                    config.headers.Authorization = `Bearer ${userData.accessToken}`;
+                }
+            }
+        }
+        
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
 axios.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry) {
+            if (isRefreshing) {
+                // If we're already refreshing, queue this request
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                }).then(token => {
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                    return axios(originalRequest);
+                }).catch(err => {
+                    return Promise.reject(err);
+                });
+            }
+
             originalRequest._retry = true;
+            isRefreshing = true;
 
             try {
-                await refreshToken();
-                const userData = getCurrentUser();
-                if (userData?.accessToken) {
-                    originalRequest.headers.Authorization = `Bearer ${userData.accessToken}`;
-                    return axios(originalRequest);
-                }
+                const result = await refreshToken();
+                const newToken = result.accessToken;
+                
+                processQueue(null, newToken);
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                
+                return axios(originalRequest);
             } catch (refreshError) {
-                // Refresh failed, redirect to login
+                processQueue(refreshError, null);
                 logout();
-                window.location.href = '/login';
+                
+                // Only redirect if we're in a browser environment
+                if (typeof window !== 'undefined') {
+                    window.location.href = '/login';
+                }
+                
                 return Promise.reject(refreshError);
+            } finally {
+                isRefreshing = false;
             }
         }
 
@@ -229,10 +360,11 @@ const authService = {
     getCurrentUser,
     isAuthenticated,
     getAccessToken,
+    ensureValidToken,
     
     // Deprecated methods for backward compatibility
-    signup: registerBuyer, // Keep for backward compatibility
-    seller_signup: registerSeller, // Keep for backward compatibility
+    signup: registerBuyer,
+    seller_signup: registerSeller,
 };
 
 export default authService;

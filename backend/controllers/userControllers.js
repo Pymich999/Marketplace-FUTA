@@ -1,6 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // Fixed typo: was 'bycrypt'
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
@@ -9,6 +9,9 @@ const OTP = require('../models/OtpModel');
 const SellerProfile = require('../models/Sellerprofile');
 const { generateOTP, sendOTPEmail } = require('../utils/otpUtils');
 const mongoose = require('mongoose');
+
+// In-memory store for refresh tokens (consider using Redis in production)
+const refreshTokenStore = new Set();
 
 // Rate limiting configurations
 const authLimiter = rateLimit({
@@ -29,7 +32,7 @@ const otpLimiter = rateLimit({
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // 5 failed login attempts per window
+    max: 10, // 10 failed login attempts per window
     skipSuccessfulRequests: true,
     message: 'Too many failed login attempts, please try again later',
     standardHeaders: true,
@@ -111,19 +114,22 @@ const validatePassword = (password) => {
            hasSpecialChar;
 };
 
-// Secure token generation with refresh tokens
+// Improved token generation with better expiry times
 const generateTokens = (userId) => {
     const accessToken = jwt.sign(
-        { id: userId }, 
+        { id: userId, type: 'access' }, 
         process.env.JWT_SECRET, 
-        { expiresIn: '15m' } // Short-lived access token
+        { expiresIn: '30m' } // Increased to 30 minutes
     );
     
     const refreshToken = jwt.sign(
-        { id: userId }, 
+        { id: userId, type: 'refresh' }, 
         process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, 
         { expiresIn: '7d' }
     );
+    
+    // Store refresh token (in production, use Redis)
+    refreshTokenStore.add(refreshToken);
     
     return { accessToken, refreshToken };
 };
@@ -134,14 +140,17 @@ const verifyOTPSecurely = (storedOTP, providedOTP) => {
         return false;
     }
     
-    // Convert to buffers for constant-time comparison
-    const storedBuffer = Buffer.from(storedOTP.toString());
-    const providedBuffer = Buffer.from(providedOTP.toString());
+    // Convert to strings and ensure same length
+    const storedStr = storedOTP.toString();
+    const providedStr = providedOTP.toString();
     
-    // Ensure buffers are same length for timing safety
-    if (storedBuffer.length !== providedBuffer.length) {
+    if (storedStr.length !== providedStr.length) {
         return false;
     }
+    
+    // Convert to buffers for constant-time comparison
+    const storedBuffer = Buffer.from(storedStr);
+    const providedBuffer = Buffer.from(providedStr);
     
     return crypto.timingSafeEqual(storedBuffer, providedBuffer);
 };
@@ -206,7 +215,7 @@ const requestEmailOTP = [
             expiresAt: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
         });
 
-        // Send OTP to user's email (keeping your Brevo logic)
+        // Send OTP to user's email
         try {
             await sendOTPEmail(email, otp);
             res.status(200).json({ 
@@ -279,7 +288,7 @@ const registerBuyer = [
         }
 
         // Hash password with stronger salt
-        const salt = await bcrypt.genSalt(12); // Increased from 10
+        const salt = await bcrypt.genSalt(12);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         // Create user
@@ -427,7 +436,6 @@ const registerSeller = [
             // Generate tokens
             const { accessToken, refreshToken } = generateTokens(user._id);
 
-            // Return user data with token
             res.status(201).json({
                 success: true,
                 user: {

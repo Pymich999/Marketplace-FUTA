@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { format } from "date-fns";
+import '../pages-styles/chat.css'
 
 const ChatList = () => {
   const [chatData, setChatData] = useState({ threads: [], users: {} });

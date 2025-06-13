@@ -20,6 +20,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "../../features/cart/cartSlice";
 import Navbar from "../navbar";
 import "../../index.css";
+import "../pages-styles/homepage.css"
 import _ from 'lodash';
 
 // Define fixed categories that won't change as products are added

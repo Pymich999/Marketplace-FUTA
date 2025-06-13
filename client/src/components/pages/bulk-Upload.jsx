@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { uploadImage } from '../../utils/imageUpload';
+import '../pages-styles/seller-dashboard.css'
 import { FaPlus, FaTrash, FaCopy } from 'react-icons/fa';
 
 const BulkProductUploader = ({ onComplete, showNotification, categories }) => {

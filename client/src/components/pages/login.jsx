@@ -11,6 +11,7 @@ import {
     setOTPSent,
     setOTPVerified
 } from "../../features/auth/authSlice";
+import '../pages-styles/auth.css'
 import futaLogo from '../../assets/futa-img-logo/logo.svg'
 
 const Login = () => {

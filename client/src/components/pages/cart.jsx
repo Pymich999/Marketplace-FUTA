@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCart, updateCart, removeFromCart, reset } from '../../features/cart/cartSlice';
 import { FaArrowRight, FaShoppingBag, FaCheckCircle, FaBell } from 'react-icons/fa';
 import _ from 'lodash';
+import '../pages-styles/cart.css'
 
 const Cart = () => {
   const dispatch = useDispatch();
